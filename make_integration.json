@@ -1,0 +1,146 @@
+{
+    "name": "Integration Supabase",
+    "flow": [
+        {
+            "id": 1,
+            "module": "supabase:watchEvents",
+            "version": 1,
+            "parameters": {
+                "__IMTHOOK__": 2223977
+            },
+            "mapper": {},
+            "metadata": {
+                "designer": {
+                    "x": -631,
+                    "y": -233
+                },
+                "restore": {
+                    "parameters": {
+                        "__IMTHOOK__": {
+                            "data": {
+                                "editable": "false"
+                            },
+                            "label": "TapTap Ad Trigger"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTHOOK__",
+                        "type": "hook:supabase",
+                        "label": "Webhook",
+                        "required": true
+                    }
+                ]
+            }
+        },
+        {
+            "id": 2,
+            "module": "instagram-business:CreatePostPhoto",
+            "version": 1,
+            "parameters": {
+                "__IMTCONN__": 8588880
+            },
+            "mapper": {
+                "caption": "{{1.record.generated_tagline}}",
+                "accountId": "17841440843026949",
+                "image_url": "{{1.record.background_image_path}}"
+            },
+            "metadata": {
+                "designer": {
+                    "x": -331,
+                    "y": -233
+                },
+                "restore": {
+                    "expect": {
+                        "accountId": {
+                            "mode": "chose",
+                            "label": "TapTap Social (El Paso) (@taptap_social)"
+                        },
+                        "user_tags": {
+                            "mode": "chose"
+                        }
+                    },
+                    "parameters": {
+                        "__IMTCONN__": {
+                            "data": {
+                                "scoped": "true",
+                                "connection": "facebook"
+                            },
+                            "label": "taptap insta (Wes Davis)"
+                        }
+                    }
+                },
+                "parameters": [
+                    {
+                        "name": "__IMTCONN__",
+                        "type": "account:facebook",
+                        "label": "Connection",
+                        "required": true
+                    }
+                ],
+                "expect": [
+                    {
+                        "name": "accountId",
+                        "type": "select",
+                        "label": "Page",
+                        "required": true
+                    },
+                    {
+                        "name": "image_url",
+                        "type": "url",
+                        "label": "Photo URL",
+                        "required": true
+                    },
+                    {
+                        "name": "caption",
+                        "type": "text",
+                        "label": "Caption"
+                    },
+                    {
+                        "name": "user_tags",
+                        "spec": [
+                            {
+                                "name": "username",
+                                "type": "text",
+                                "label": "Username",
+                                "required": true,
+                                "validate": {
+                                    "pattern": "^(?!@)"
+                                }
+                            }
+                        ],
+                        "type": "array",
+                        "label": "User Tags"
+                    },
+                    {
+                        "name": "location_id",
+                        "type": "text",
+                        "label": "Location ID"
+                    }
+                ]
+            }
+        }
+    ],
+    "metadata": {
+        "instant": true,
+        "version": 1,
+        "scenario": {
+            "roundtrips": 1,
+            "maxErrors": 3,
+            "autoCommit": true,
+            "autoCommitTriggerLast": true,
+            "sequential": false,
+            "slots": null,
+            "confidential": false,
+            "dataloss": false,
+            "dlq": false,
+            "freshVariables": false
+        },
+        "designer": {
+            "orphans": []
+        },
+        "zone": "us2.make.com",
+        "notes": []
+    }
+}
