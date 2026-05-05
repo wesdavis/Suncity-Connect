@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
       message: { text: aiReply }
     };
 
-    const metaResponse = await fetch('https://graph.instagram.com/v19.0/me/messages', {
+    const metaResponse = await fetch('https://graph.facebook.com/v25.0/me/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
