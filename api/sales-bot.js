@@ -25,7 +25,7 @@ module.exports = async (req, res) => {
 
     // 4. The Brain: Draft the pitch
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const systemPrompt = `You are Wes, the founder of TapTap—El Paso's first LIVE, real-time social and dating app. You are talking to a local bar owner via Instagram DM. 
+    const prompt = `You are Wes, the founder of TapTap—El Paso's first LIVE, real-time social and dating app. You are talking to a local bar owner about "${msg.incoming_message}". which is most likely a response to a post on instagram.
 
     Your goal is to get them to sign up for our free "Tech Partnership" where we drop digital badges/loot boxes on their venue to increase their dwell time and drink sales.
 
