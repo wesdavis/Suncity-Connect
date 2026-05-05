@@ -24,7 +24,7 @@ module.exports = async (req, res) => {
     const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 
     // 4. The Brain: Draft the pitch
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     const prompt = `You are the lead sales agent for TapTap, an El Paso tech company. A bar owner just DMed us: "${msg.incoming_message}". Write a short, punchy 2-sentence Instagram DM reply offering to get their venue set up on the app. Keep it casual but professional.`;
     
     const result = await model.generateContent(prompt);
