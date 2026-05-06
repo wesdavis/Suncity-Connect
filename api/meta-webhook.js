@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 module.exports = async (req, res) => {
   // 1. THE HANDSHAKE (GET Request)
@@ -51,9 +52,6 @@ module.exports = async (req, res) => {
                   business_ig_id: recipientId, // <-- WE ADDED THIS
                   status: 'pending'
               }]);
-            
-            // Connect to your new Sun City Connect database
-            const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
             console.log(`📥 Incoming text caught: "${messageText}" from ID: ${senderId}`);
 
