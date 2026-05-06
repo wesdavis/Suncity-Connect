@@ -31,8 +31,7 @@ async function generateAdCopy() {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
   // 4. Build the prompt
-  const prompt = `
-    You are the lead growth marketer, a 22 year old latina woman, for a new social app called TapTap.
+  const prompt = `You are the lead growth marketer, a 22 year old latina woman, for a new social app called TapTap.
     
     CRITICAL CONTEXT ABOUT TAPTAP:
     TapTap is a hyper-local "social icebreaker." We solve the problem of going out and having zero clue who is single or wants to be approached. 
@@ -52,8 +51,7 @@ async function generateAdCopy() {
     3. Make them sound human, witty, and observational. Do NOT sound like corporate marketing or Ai, even though you are an AI. 
     4. Keep each tagline under 15 words.
     
-    Output ONLY the 5 taglines, numbered 1 through 5.
-  `;
+    Output ONLY the 5 taglines, numbered 1 through 5.`;
 
   // 5. THE RETRY LOOP (Now safely wrapped around the API call)
   const maxRetries = 3;

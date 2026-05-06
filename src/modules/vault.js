@@ -36,7 +36,7 @@ async function saveToVault(localImagePath, tagline) {
     console.log("2. Logging post to the database...");
     
     // We add the Call To Action here so Zapier pulls the complete caption
-    const fullCaption = `${tagline}\n\nStop swiping. Start talking. Download TapTap via the link in our bio. 📍 #ElPaso #TapTapApp`;
+    const fullCaption = `${tagline}\n\n Stop losing leads in the DMs. Comment 'AUTOMATE' to get your business set up.`;
 
     const { error: dbError } = await supabase
       .from('marketing_posts')
