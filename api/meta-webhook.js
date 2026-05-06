@@ -35,7 +35,22 @@ module.exports = async (req, res) => {
           // THIS IS YOUR NEW FILTER: Only trigger if actual text exists
           if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
             const senderId = webhookEvent.sender.id;
+            const recipientId = webhookEvent.recipient.id; // <-- WE ADDED THIS
             const messageText = webhookEvent.message.text;
+            
+            const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+            console.log(`📥 Incoming text: "${messageText}" to Business ID: ${recipientId}`);
+
+            // Insert into Supabase with the Business ID included
+            const { error } = await supabase
+              .from('b2b_inbox')
+              .insert([{ 
+                  ig_username: senderId, 
+                  incoming_message: messageText,
+                  business_ig_id: recipientId, // <-- WE ADDED THIS
+                  status: 'pending'
+              }]);
             
             // Connect to your new Sun City Connect database
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);

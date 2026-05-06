@@ -21,22 +21,37 @@ module.exports = async (req, res) => {
     // 3. Initialize Keys from Vercel Environment Variables
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const META_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 
-    // 4. The Brain: Draft the pitch
+    // 4. NEW: Lookup the specific client based on who the DM was sent to
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('ig_account_id', msg.business_ig_id)
+      .single();
+
+    if (clientError || !client) {
+      console.error(`Client not found for Business IG ID: ${msg.business_ig_id}`);
+      // Return 200 so Supabase doesn't get stuck retrying a failed delivery
+      return res.status(200).json({ error: 'Client not found in Rolodex' });
+    }
+
+    console.log(`🧠 Loaded brain for: ${client.business_name}`);
+    const META_ACCESS_TOKEN = client.meta_access_token; // Use their specific token!
+
+    // 5. The Brain: Draft the pitch using THEIR custom instructions
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    const prompt = `You are wes, founder of TapTap, an El Paso tech company. Someone just DMed us: "${msg.incoming_message}". 
-
-INSTRUCTIONS:
-1. If their message is a basic greeting or asking what TapTap is, write a short, punchy 2-sentence pitch offering to get their venue set up.
-2. If they say yes, ask for a link, or want to move forward, tell them to claim their venue here: https://get-taptap.com/business (Make sure you include the link!).
-3. Keep it casual, professional, and zero-BS. Do not sound like a robot.`;
+    
+    const prompt = `
+    ${client.custom_prompt}
+    
+    A customer just DMed us: "${msg.incoming_message}". 
+    Write a short, professional, zero-BS response. Do not sound like a robot.`;
     
     const result = await model.generateContent(prompt);
     const aiReply = result.response.text();
     console.log(`AI drafted reply: ${aiReply}`);
 
-    // 5. The Mouth: Send to Instagram
+    // 6. The Mouth: Send to Instagram
     const metaPayload = {
       recipient: { id: msg.ig_username },
       message: { text: aiReply }
@@ -57,7 +72,7 @@ INSTRUCTIONS:
       return res.status(500).json({ error: "Failed to send DM", details: err });
     }
 
-    // 6. Update Database
+    // 7. Update Database
     await supabase
       .from('b2b_inbox')
       .update({ ai_reply: aiReply, status: 'replied' })
