@@ -28,12 +28,11 @@ module.exports = async (req, res) => {
         for (const entry of body.entry) {
           const webhookEvent = entry.messaging ? entry.messaging[0] : null;
           
-          // THE FIX: Added a check to ignore is_echo and messages sent by the business itself
           if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
             
             if (webhookEvent.message.is_echo) {
                 console.log('👻 Ignored bot echo');
-                continue; // Skips to the next event
+                continue;
             }
 
             const senderId = webhookEvent.sender.id;
@@ -41,6 +40,21 @@ module.exports = async (req, res) => {
             const messageText = webhookEvent.message.text;
             
             console.log(`📥 Incoming text: "${messageText}" to Business ID: ${recipientId}`);
+
+            // NEW: The Stutter Filter
+            // Check if we just caught this exact message a millisecond ago
+            const { data: existingMsg } = await supabase
+              .from('b2b_inbox')
+              .select('id')
+              .eq('ig_username', senderId)
+              .eq('incoming_message', messageText)
+              .eq('status', 'pending')
+              .limit(1);
+
+            if (existingMsg && existingMsg.length > 0) {
+              console.log('🛑 Caught a Meta stutter! Ignoring duplicate payload.');
+              continue; // Skips the insert entirely
+            }
 
             // Insert into Supabase 
             const { error: insertError } = await supabase
@@ -69,6 +83,3 @@ module.exports = async (req, res) => {
       return res.status(500).send('Internal Server Error');
     }
   }
-
-  return res.status(405).send('Method Not Allowed');
-};
