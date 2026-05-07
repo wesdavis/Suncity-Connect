@@ -83,3 +83,6 @@ module.exports = async (req, res) => {
       return res.status(500).send('Internal Server Error');
     }
   }
+
+  return res.status(405).send('Method Not Allowed');
+};
