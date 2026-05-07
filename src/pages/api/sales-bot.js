@@ -1,6 +1,6 @@
 // NEW UPDATED PATHS
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const supabase = require('../src/config/db'); 
+const supabase = require('../../config/db');
 
 // ... keep the rest of your sales bot code exactly the same ...
 

@@ -1,6 +1,6 @@
 // NEW UPDATED PATHS
-const supabase = require('../src/config/db'); 
-const { processMessage } = require('./sales-bot'); // This stays the same because they are in the same folder
+const supabase = require('../../config/db'); 
+const { processMessage } = require('./sales-bot');
 
 // ... keep the rest of your webhook code exactly the same ...
 
