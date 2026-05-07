@@ -28,7 +28,14 @@ module.exports = async (req, res) => {
         for (const entry of body.entry) {
           const webhookEvent = entry.messaging ? entry.messaging[0] : null;
           
+          // THE FIX: Added a check to ignore is_echo and messages sent by the business itself
           if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
+            
+            if (webhookEvent.message.is_echo) {
+                console.log('👻 Ignored bot echo');
+                continue; // Skips to the next event
+            }
+
             const senderId = webhookEvent.sender.id;
             const recipientId = webhookEvent.recipient.id; 
             const messageText = webhookEvent.message.text;
