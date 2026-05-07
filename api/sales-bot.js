@@ -1,5 +1,8 @@
-const { createClient } = require('@supabase/supabase-js');
+// NEW UPDATED PATHS
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const supabase = require('../src/config/db'); 
+
+// ... keep the rest of your sales bot code exactly the same ...
 
 module.exports = async (req, res) => {
   // 1. Only allow POST requests (from the Supabase Webhook)

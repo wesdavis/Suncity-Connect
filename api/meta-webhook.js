@@ -1,5 +1,8 @@
-const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+// NEW UPDATED PATHS
+const supabase = require('../src/config/db'); 
+const { processMessage } = require('./sales-bot'); // This stays the same because they are in the same folder
+
+// ... keep the rest of your webhook code exactly the same ...
 
 module.exports = async (req, res) => {
   // 1. THE HANDSHAKE (GET Request)
