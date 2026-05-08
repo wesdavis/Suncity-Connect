@@ -80,12 +80,15 @@ module.exports = async (req, res) => {
                 .single();
 
               if (client && client.meta_access_token) {
-                // Post the reply to Instagram
-                const url = `https://graph.facebook.com/v18.0/${commentId}/replies?access_token=${client.meta_access_token}`;
+                // NEW: Use URLSearchParams to format as Form Data instead of JSON
+                const url = `https://graph.facebook.com/v18.0/${commentId}/replies`;
                 const response = await fetch(url, {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ message: replyText })
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: new URLSearchParams({
+                    message: replyText,
+                    access_token: client.meta_access_token
+                  })
                 });
 
                 if (!response.ok) {
