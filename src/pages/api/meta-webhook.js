@@ -54,6 +54,11 @@ module.exports = async (req, res) => {
             const commentId = change.value.id;
             const commentText = change.value.text;
             const commenterUsername = change.value.from.username;
+            // THE BULLETPROOF KILL SWITCH
+            if (commenterUsername.toLowerCase() === 'taptap_social') {
+              console.log("Skipping our own comment.");
+              return; 
+            }
 
             console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
             
