@@ -89,7 +89,8 @@ module.exports = async (req, res) => {
                 });
 
                 if (!response.ok) {
-                  console.error("❌ Failed to post comment reply");
+                  const errorData = await response.json();
+                  console.error("❌ Failed to post comment reply. Meta API Error:", JSON.stringify(errorData));
                 } else {
                   console.log(`✅ Successfully replied to comment with: ${replyText}`);
                 }
