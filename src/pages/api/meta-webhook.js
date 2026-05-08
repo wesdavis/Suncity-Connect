@@ -32,10 +32,10 @@ module.exports = async (req, res) => {
           const webhookEvent = entry.messaging[0];
           const senderId = webhookEvent.sender.id;
           
-          if (webhookEvent.message && webhookEvent.message.text) {
+          // PREVENT DM ECHO: Ignore messages sent by the bot itself!
+          if (senderId.toString() !== businessIgId.toString() && webhookEvent.message && webhookEvent.message.text) {
             console.log("📨 Received DM:", webhookEvent.message.text);
             
-            // Insert into Supabase (This triggers sales-bot.js in the background!)
             await supabase.from('b2b_inbox').insert([{
               ig_username: senderId,
               incoming_message: webhookEvent.message.text,
@@ -49,8 +49,8 @@ module.exports = async (req, res) => {
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
-          // Ensure it is a comment, and it isn't the bot replying to itself
-          if (change.field === 'comments' && !change.value.from.id.includes(process.env.IG_BUSINESS_ID)) {
+          // PREVENT COMMENT ECHO: Ignore comments posted by the bot itself!
+          if (change.field === 'comments' && change.value.from.id.toString() !== businessIgId.toString()) {
             const commentId = change.value.id;
             const commentText = change.value.text;
             const commenterUsername = change.value.from.username;
@@ -61,18 +61,15 @@ module.exports = async (req, res) => {
               let replyText = "";
               const cleanText = commentText.toLowerCase().trim();
 
-              // Trigger Word Logic
               if (cleanText.includes('demo')) {
                 replyText = `Hey @${commenterUsername}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else {
-                // Generative AI casual reply
                 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
                 const prompt = `You are replying to a public Instagram comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
                 const result = await model.generateContent(prompt);
                 replyText = result.response.text().trim();
               }
 
-              // Look up the specific client's token
               const { data: client } = await supabase
                 .from('clients')
                 .select('meta_access_token')
@@ -80,7 +77,6 @@ module.exports = async (req, res) => {
                 .single();
 
               if (client && client.meta_access_token) {
-                // NEW: Use URLSearchParams to format as Form Data instead of JSON
                 const url = `https://graph.facebook.com/v18.0/${commentId}/replies`;
                 const response = await fetch(url, {
                   method: 'POST',
@@ -93,7 +89,7 @@ module.exports = async (req, res) => {
 
                 if (!response.ok) {
                   const errorData = await response.json();
-                  console.error("❌ Failed to post comment reply. Meta API Error:", JSON.stringify(errorData));
+                  console.error("❌ Failed to post comment reply:", JSON.stringify(errorData));
                 } else {
                   console.log(`✅ Successfully replied to comment with: ${replyText}`);
                 }
