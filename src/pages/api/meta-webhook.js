@@ -1,20 +1,17 @@
-// NEW UPDATED PATHS
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const { processMessage } = require('./sales-bot');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// ... keep the rest of your webhook code exactly the same ...
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 module.exports = async (req, res) => {
-  // 1. THE HANDSHAKE (GET Request)
+  // 1. THE HANDSHAKE
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN;
-
-    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === process.env.META_VERIFY_TOKEN) {
       console.log('✅ Webhook securely connected to Meta!');
       return res.status(200).send(challenge);
     } else {
@@ -22,71 +19,90 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 2. THE CATCHER (POST Request)
+  // 2. RECEIVING DATA FROM META
   if (req.method === 'POST') {
-    try {
-      const body = req.body;
+    const body = req.body;
 
-      if (body.object === 'page' || body.object === 'instagram') {
-        
-        for (const entry of body.entry) {
-          const webhookEvent = entry.messaging ? entry.messaging[0] : null;
+    if (body.object === 'instagram') {
+      for (const entry of body.entry) {
+        const businessIgId = entry.id; 
+
+        // --- A. CATCH DIRECT MESSAGES ---
+        if (entry.messaging && entry.messaging[0]) {
+          const webhookEvent = entry.messaging[0];
+          const senderId = webhookEvent.sender.id;
           
-          if (webhookEvent && webhookEvent.message && webhookEvent.message.text) {
+          if (webhookEvent.message && webhookEvent.message.text) {
+            console.log("📨 Received DM:", webhookEvent.message.text);
             
-            if (webhookEvent.message.is_echo) {
-                console.log('👻 Ignored bot echo');
-                continue;
-            }
-
-            const senderId = webhookEvent.sender.id;
-            const recipientId = webhookEvent.recipient.id; 
-            const messageText = webhookEvent.message.text;
-            
-            console.log(`📥 Incoming text: "${messageText}" to Business ID: ${recipientId}`);
-
-            // NEW: The Stutter Filter
-            // Check if we just caught this exact message a millisecond ago
-            const { data: existingMsg } = await supabase
-              .from('b2b_inbox')
-              .select('id')
-              .eq('ig_username', senderId)
-              .eq('incoming_message', messageText)
-              .eq('status', 'pending')
-              .limit(1);
-
-            if (existingMsg && existingMsg.length > 0) {
-              console.log('🛑 Caught a Meta stutter! Ignoring duplicate payload.');
-              continue; // Skips the insert entirely
-            }
-
-            // Insert into Supabase 
-            const { error: insertError } = await supabase
-              .from('b2b_inbox')
-              .insert([{ 
-                  ig_username: senderId, 
-                  incoming_message: messageText,
-                  business_ig_id: recipientId, 
-                  status: 'pending'
-              }]);
-
-            if (insertError) console.error('Supabase Insert Error:', insertError);
-            
-          } else {
-            console.log('👻 Ignored non-text event');
+            // Insert into Supabase (This triggers sales-bot.js in the background!)
+            await supabase.from('b2b_inbox').insert([{
+              ig_username: senderId,
+              incoming_message: webhookEvent.message.text,
+              status: 'pending',
+              business_ig_id: businessIgId
+            }]);
           }
         }
 
-        return res.status(200).send('EVENT_RECEIVED');
-      } else {
-        return res.status(404).send('Not Found');
-      }
+        // --- B. CATCH PUBLIC COMMENTS ---
+        if (entry.changes && entry.changes[0]) {
+          const change = entry.changes[0];
+          
+          // Ensure it is a comment, and it isn't the bot replying to itself
+          if (change.field === 'comments' && !change.value.from.id.includes(process.env.IG_BUSINESS_ID)) {
+            const commentId = change.value.id;
+            const commentText = change.value.text;
+            const commenterUsername = change.value.from.username;
 
-    } catch (webhookError) {
-      console.error('Webhook Error:', webhookError);
-      return res.status(500).send('Internal Server Error');
+            console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
+            
+            try {
+              let replyText = "";
+              const cleanText = commentText.toLowerCase().trim();
+
+              // Trigger Word Logic
+              if (cleanText.includes('demo')) {
+                replyText = `Hey @${commenterUsername}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
+              } else {
+                // Generative AI casual reply
+                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const prompt = `You are replying to a public Instagram comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
+                const result = await model.generateContent(prompt);
+                replyText = result.response.text().trim();
+              }
+
+              // Look up the specific client's token
+              const { data: client } = await supabase
+                .from('clients')
+                .select('meta_access_token')
+                .eq('ig_account_id', businessIgId)
+                .single();
+
+              if (client && client.meta_access_token) {
+                // Post the reply to Instagram
+                const url = `https://graph.facebook.com/v18.0/${commentId}/replies?access_token=${client.meta_access_token}`;
+                const response = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: replyText })
+                });
+
+                if (!response.ok) {
+                  console.error("❌ Failed to post comment reply");
+                } else {
+                  console.log(`✅ Successfully replied to comment with: ${replyText}`);
+                }
+              }
+            } catch (error) {
+              console.error("❌ Error processing comment:", error);
+            }
+          }
+        }
+      }
+      res.status(200).send('EVENT_RECEIVED');
+    } else {
+      res.status(404).send();
     }
   }
-
-  return res.status(405).send('Method Not Allowed');
 };

@@ -1,18 +1,15 @@
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
-const path = require('path');
 require('dotenv').config();
 
-// Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 async function saveToVault(localImagePath, tagline) {
   console.log(`\n🏦 Starting Module D: The Vault...`);
   
   try {
-    // 1. Upload the image to the Supabase Storage Bucket
     console.log("1. Uploading image to Supabase Storage...");
-    const fileName = `ad_${Date.now()}.png`;
+    const fileName = `suncity_ad_${Date.now()}.png`;
     const fileBuffer = fs.readFileSync(localImagePath);
 
     const { data: uploadData, error: uploadError } = await supabase.storage
@@ -24,7 +21,6 @@ async function saveToVault(localImagePath, tagline) {
 
     if (uploadError) throw uploadError;
 
-    // 2. Ask Supabase for the public, shareable URL
     const { data: publicUrlData } = supabase.storage
       .from('marketing_assets')
       .getPublicUrl(fileName);
@@ -32,11 +28,10 @@ async function saveToVault(localImagePath, tagline) {
     const publicImageUrl = publicUrlData.publicUrl;
     console.log(`✅ Image uploaded! Public URL: ${publicImageUrl}`);
 
-    // 3. Save the Tagline and the URL into your Database Table
     console.log("2. Logging post to the database...");
     
-    // We add the Call To Action here so Zapier pulls the complete caption
-    const fullCaption = `${tagline}\n\n Stop losing leads in the DMs. Comment 'AUTOMATE' to get your business set up.`;
+    // THE NEW CTA: Tells them to comment DEMO so your new webhook catches it!
+    const fullCaption = `${tagline}\n\nStop missing late-night DMs and losing leads to competitors. Comment 'DEMO' to see how Sun City Connect can automate your inbox 24/7.`;
 
     const { error: dbError } = await supabase
       .from('marketing_posts')

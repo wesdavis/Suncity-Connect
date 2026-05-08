@@ -1,31 +1,23 @@
-// NEW UPDATED PATHS
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-// ... keep the rest of your sales bot code exactly the same ...
 
 module.exports = async (req, res) => {
-  // 1. Only allow POST requests (from the Supabase Webhook)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    // 2. Catch the ping from Supabase
     const msg = req.body.record;
 
-    // If it's not a pending message, ignore it successfully
     if (!msg || msg.status !== 'pending') {
       return res.status(200).json({ message: "Ignored - Not a pending message" });
     }
 
     console.log(`Processing new message: "${msg.incoming_message}"`);
 
-    // 3. Initialize Keys from Vercel Environment Variables
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-    // 4. NEW: Lookup the specific client based on who the DM was sent to
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('*')
@@ -34,27 +26,29 @@ module.exports = async (req, res) => {
 
     if (clientError || !client) {
       console.error(`Client not found for Business IG ID: ${msg.business_ig_id}`);
-      // Return 200 so Supabase doesn't get stuck retrying a failed delivery
       return res.status(200).json({ error: 'Client not found in Rolodex' });
     }
 
     console.log(`🧠 Loaded brain for: ${client.business_name}`);
-    const META_ACCESS_TOKEN = client.meta_access_token; // Use their specific token!
+    const META_ACCESS_TOKEN = client.meta_access_token; 
 
-    // 5. The Brain: Draft the pitch using THEIR custom instructions
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
-    const prompt = `
-    ${client.custom_prompt}
-    
-    A customer just DMed us: "${msg.incoming_message}". 
-    Write a short, professional, zero-BS response. Do not sound like a robot.`;
+    // Fixed prompt with the correct variable: msg.incoming_message
+    const prompt = `You are the lead AI sales assistant managing the Instagram DMs for Sun City Connect, an AI automation agency in El Paso, Texas.
+
+CRITICAL RULES:
+1. You are replying to an Instagram DM, NOT an email. NEVER use "Subject:", formal signatures, or placeholders like "[Your Name]".
+2. Keep responses incredibly short, punchy, and human (1-2 sentences max). 
+3. If the user asks what we do, tell them we build custom 24/7 AI sales assistants for local businesses to stop them from losing leads in the DMs.
+4. If the user sends the word "DEMO" (or any variation like "Demo" or "demo"), DO NOT ask them to reply demo again. Instead, tell them: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar to see it live: [YOUR_CALENDLY_LINK_HERE]"
+
+User's incoming message: "${msg.incoming_message}"`; 
     
     const result = await model.generateContent(prompt);
     const aiReply = result.response.text();
     console.log(`AI drafted reply: ${aiReply}`);
 
-    // 6. The Mouth: Send to Instagram
     const metaPayload = {
       recipient: { id: msg.ig_username },
       message: { text: aiReply }
@@ -75,7 +69,6 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Failed to send DM", details: err });
     }
 
-    // 7. Update Database
     await supabase
       .from('b2b_inbox')
       .update({ ai_reply: aiReply, status: 'replied' })
