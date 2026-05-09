@@ -54,18 +54,28 @@ module.exports = async (req, res) => {
             const commentId = change.value.id;
             const commentText = change.value.text;
             const commenterUsername = change.value.from.username;
-            // THE BULLETPROOF KILL SWITCH
-            if (commenterUsername.toLowerCase() === 'taptap_social') {
-              console.log("Skipping our own comment.");
-              return; 
-            }
 
             console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
             
             try {
+              // 1. DYNAMIC LOOKUP: Ask Supabase for this specific client's data
+              const { data: client } = await supabase
+                .from('clients')
+                .select('meta_access_token, ig_username')
+                .eq('ig_account_id', businessIgId)
+                .single();
+
+              // 2. THE DYNAMIC KILL SWITCH
+              // If the person commenting matches the client's username in the database, ignore it!
+              if (client && client.ig_username && commenterUsername.toLowerCase() === client.ig_username.toLowerCase()) {
+                console.log(`Skipping comment - it was posted by the client account: @${commenterUsername}`);
+                return; 
+              }
+
               let replyText = "";
               const cleanText = commentText.toLowerCase().trim();
 
+              // 3. GENERATE REPLY
               if (cleanText.includes('demo')) {
                 replyText = `Hey @${commenterUsername}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else {
@@ -75,12 +85,7 @@ module.exports = async (req, res) => {
                 replyText = result.response.text().trim();
               }
 
-              const { data: client } = await supabase
-                .from('clients')
-                .select('meta_access_token')
-                .eq('ig_account_id', businessIgId)
-                .single();
-
+              // 4. POST REPLY
               if (client && client.meta_access_token) {
                 const url = `https://graph.facebook.com/v18.0/${commentId}/replies`;
                 const response = await fetch(url, {
