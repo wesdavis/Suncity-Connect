@@ -6,17 +6,14 @@ export default function Home() {
       
       {/* NAVIGATION */}
       <nav className="w-full bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* NEW LOGO IMPLEMENTATION */}
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center">
+            {/* NEW LOGO IMPLEMENTATION: 4x Bigger, Text Removed */}
             <img 
               src="/assets/SCC_logo.png" 
               alt="Sun City Connect Logo" 
-              className="w-12 h-12 object-contain drop-shadow-sm" 
+              className="w-48 h-auto md:w-56 object-contain drop-shadow-sm hover:scale-105 transition-transform" 
             />
-            <span className="text-xl font-black tracking-tight text-slate-900">
-              SUN CITY <span className="text-purple-600">CONNECT</span>
-            </span>
           </div>
           <div className="hidden md:flex items-center gap-8 font-bold text-sm">
             <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors">How it Works</a>
@@ -64,7 +61,6 @@ export default function Home() {
           {/* Card 1 */}
           <div className="bg-white border border-slate-200 p-5 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all flex flex-col">
             <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl mb-6 overflow-hidden border-4 border-slate-50 relative shadow-inner flex items-center justify-center">
-               {/* You can drop a demo video here later just like TapTap! */}
                <MessageSquare size={64} className="text-purple-300" />
             </div>
             <div className="text-center px-2 pb-4">
@@ -98,7 +94,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* OLD WAY VS NEW WAY (Reworked for Light Theme) */}
+      {/* OLD WAY VS NEW WAY */}
       <section className="bg-white py-24 border-y border-slate-200">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
