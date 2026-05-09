@@ -2,17 +2,17 @@ import { ArrowRight, MessageSquare, Zap, CheckCircle2, XCircle, CalendarClock, T
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-purple-500/20">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-orange-500/20">
       
       {/* NAVIGATION */}
       <nav className="w-full bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            {/* NEW LOGO IMPLEMENTATION: 4x Bigger, Text Removed */}
+            {/* UPDATED LOGO: Added object-left so it stays anchored, bumped height */}
             <img 
               src="/assets/SCC_logo.png" 
               alt="Sun City Connect Logo" 
-              className="w-48 h-auto md:w-56 object-contain drop-shadow-sm hover:scale-105 transition-transform" 
+              className="h-16 md:h-20 w-auto object-contain object-left drop-shadow-sm hover:scale-105 transition-transform origin-left" 
             />
           </div>
           <div className="hidden md:flex items-center gap-8 font-bold text-sm">
@@ -27,19 +27,19 @@ export default function Home() {
 
       {/* HERO SECTION */}
       <main className="max-w-7xl mx-auto px-6 pt-16 pb-24 lg:pt-24 relative overflow-hidden">
-        {/* Soft background blurs mimicking the TapTap style */}
-        <div className="absolute top-10 right-10 w-64 h-64 bg-purple-100 rounded-full blur-3xl -z-10"></div>
-        <div className="absolute bottom-10 left-10 w-72 h-72 bg-blue-50 rounded-full blur-3xl -z-10"></div>
+        {/* Soft background blurs mimicking the Sun City vibe */}
+        <div className="absolute top-10 right-10 w-64 h-64 bg-orange-100 rounded-full blur-3xl -z-10"></div>
+        <div className="absolute bottom-10 left-10 w-72 h-72 bg-amber-50 rounded-full blur-3xl -z-10"></div>
 
         <div className="flex flex-col items-center text-center relative z-10 max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-50 border border-purple-100 rounded-full text-purple-700 text-xs font-bold mb-8 uppercase tracking-widest shadow-sm">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-50 border border-orange-100 rounded-full text-orange-600 text-xs font-bold mb-8 uppercase tracking-widest shadow-sm">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
             Now Onboarding in El Paso, TX
           </div>
           
           <h1 className="text-6xl lg:text-8xl font-black tracking-tighter leading-[0.95] text-slate-900 mb-6">
             STOP TYPING. <br/>
-            <span className="text-purple-600">START CLOSING.</span>
+            <span className="text-orange-500">START CLOSING.</span>
           </h1>
           
           <p className="text-lg lg:text-2xl text-slate-600 mb-10 max-w-2xl mx-auto font-medium leading-relaxed">
@@ -47,21 +47,21 @@ export default function Home() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full sm:w-auto">
-            <button className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-black text-lg py-4 px-10 rounded-full flex items-center justify-center gap-2 transition-transform hover:scale-105 shadow-xl shadow-purple-600/20">
+            <button className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-4 px-10 rounded-full flex items-center justify-center gap-2 transition-transform hover:scale-105 shadow-xl shadow-orange-500/20">
               Get a Live Demo <ArrowRight size={24} />
             </button>
           </div>
         </div>
       </main>
 
-      {/* TAPTAP-STYLE FEATURE CARDS */}
+      {/* FEATURE CARDS */}
       <section id="how-it-works" className="w-full max-w-7xl mx-auto px-6 pb-24 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10">
           
           {/* Card 1 */}
           <div className="bg-white border border-slate-200 p-5 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all flex flex-col">
             <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl mb-6 overflow-hidden border-4 border-slate-50 relative shadow-inner flex items-center justify-center">
-               <MessageSquare size={64} className="text-purple-300" />
+               <MessageSquare size={64} className="text-orange-300" />
             </div>
             <div className="text-center px-2 pb-4">
               <h3 className="text-2xl font-black text-slate-900 mb-2">Instant Replies</h3>
@@ -72,7 +72,7 @@ export default function Home() {
           {/* Card 2 */}
           <div className="bg-white border border-slate-200 p-5 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all flex flex-col">
             <div className="w-full aspect-[4/3] bg-slate-100 rounded-3xl mb-6 overflow-hidden border-4 border-slate-50 relative shadow-inner flex items-center justify-center">
-               <CalendarClock size={64} className="text-purple-300" />
+               <CalendarClock size={64} className="text-orange-300" />
             </div>
             <div className="text-center px-2 pb-4">
               <h3 className="text-2xl font-black text-slate-900 mb-2">Book Appointments</h3>
@@ -83,7 +83,7 @@ export default function Home() {
           {/* Card 3 */}
           <div className="bg-white border border-slate-200 p-5 rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all flex flex-col">
             <div className="w-full aspect-[4/3] bg-slate-900 rounded-3xl mb-6 overflow-hidden border-4 border-slate-800 relative shadow-inner flex items-center justify-center">
-               <TrendingUp size={64} className="text-purple-500" />
+               <TrendingUp size={64} className="text-orange-500" />
             </div>
             <div className="text-center px-2 pb-4">
               <h3 className="text-2xl font-black text-slate-900 mb-2">24/7 Sales Rep</h3>
@@ -136,7 +136,7 @@ export default function Home() {
                   "Appointments booked straight to your calendar"
                 ].map((item, i) => (
                   <li key={i} className="flex gap-4 text-slate-300 font-medium text-lg">
-                    <CheckCircle2 className="text-purple-400 shrink-0 mt-0.5" /> {item}
+                    <CheckCircle2 className="text-orange-400 shrink-0 mt-0.5" /> {item}
                   </li>
                 ))}
               </ul>
@@ -153,8 +153,8 @@ export default function Home() {
             <p className="text-slate-500 text-lg font-medium">No hidden fees. Cancel anytime. Start automating today.</p>
           </div>
 
-          <div className="max-w-lg mx-auto bg-white rounded-[2.5rem] p-10 border border-purple-200 relative overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-            <div className="absolute top-0 left-0 w-full h-2 bg-purple-500"></div>
+          <div className="max-w-lg mx-auto bg-white rounded-[2.5rem] p-10 border border-orange-200 relative overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+            <div className="absolute top-0 left-0 w-full h-2 bg-orange-500"></div>
             
             <h3 className="text-3xl font-black mb-2 text-slate-900">Growth Plan</h3>
             <p className="text-slate-500 font-medium mb-8">Everything you need to automate your DMs and close leads.</p>
@@ -174,12 +174,12 @@ export default function Home() {
                 "Priority Support"
               ].map((feature, i) => (
                 <li key={i} className="flex gap-3 text-slate-700 font-bold text-lg">
-                  <CheckCircle2 className="text-purple-600 shrink-0" /> {feature}
+                  <CheckCircle2 className="text-orange-500 shrink-0" /> {feature}
                 </li>
               ))}
             </ul>
 
-            <button className="w-full bg-slate-900 hover:bg-purple-600 text-white font-black text-lg py-5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
+            <button className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black text-lg py-5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
               Start Your Free Demo
             </button>
           </div>
