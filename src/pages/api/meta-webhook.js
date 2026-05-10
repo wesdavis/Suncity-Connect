@@ -83,6 +83,7 @@ module.exports = async (req, res) => {
               business_ig_id: businessId.toString()
             }]);
           }
+        }
 
         // --- B. CATCH PUBLIC COMMENTS ---
         if (entry.changes && entry.changes[0]) {
