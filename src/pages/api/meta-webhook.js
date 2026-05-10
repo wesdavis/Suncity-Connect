@@ -58,6 +58,22 @@ module.exports = async (req, res) => {
 
           // 3. PROCESS THE DM: If it passes both kill switches, save it!
           if (webhookEvent.message && webhookEvent.message.text) {
+            
+            // --- THE DEDUPLICATION FILTER ---
+            // Fetch the last message this user sent us to see if Meta is double-firing
+            const { data: lastMsg } = await supabase
+              .from('b2b_inbox')
+              .select('incoming_message')
+              .eq('ig_username', senderId.toString())
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            // If the text perfectly matches their last message, drop it!
+            if (lastMsg && lastMsg.length > 0 && lastMsg[0].incoming_message === webhookEvent.message.text) {
+              console.log("♻️ Duplicate Meta event dropped.");
+              continue;
+            }
+
             console.log("📨 Received DM:", webhookEvent.message.text);
             
             await supabase.from('b2b_inbox').insert([{
@@ -67,7 +83,6 @@ module.exports = async (req, res) => {
               business_ig_id: businessId.toString()
             }]);
           }
-        }
 
         // --- B. CATCH PUBLIC COMMENTS ---
         if (entry.changes && entry.changes[0]) {
