@@ -23,24 +23,48 @@ module.exports = async (req, res) => {
   if (req.method === 'POST') {
     const body = req.body;
 
-    if (body.object === 'instagram') {
+    // THE OMNI-CHANNEL SWITCH: Accept both IG and FB Page data!
+    if (body.object === 'instagram' || body.object === 'page') {
       for (const entry of body.entry) {
-        const businessIgId = entry.id; 
+        const businessId = entry.id; 
 
         // --- A. CATCH DIRECT MESSAGES ---
         if (entry.messaging && entry.messaging[0]) {
           const webhookEvent = entry.messaging[0];
           const senderId = webhookEvent.sender.id;
           
-          // PREVENT DM ECHO: Ignore messages sent by the bot itself!
-          if (senderId.toString() !== businessIgId.toString() && webhookEvent.message && webhookEvent.message.text) {
+          // 1. THE META KILL SWITCH: Check Meta's built-in echo flag
+          if (webhookEvent.message && webhookEvent.message.is_echo) {
+            console.log("🔇 Dropping Meta echo message.");
+            continue; 
+          }
+
+          // 2. THE DYNAMIC KILL SWITCH: Look up both IG and FB IDs in Supabase
+          const { data: clientCheck } = await supabase
+            .from('clients')
+            .select('ig_account_id, fb_page_id')
+            .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
+            .single();
+
+          const isSenderTheClient = clientCheck && (
+            senderId.toString() === clientCheck.ig_account_id ||
+            senderId.toString() === clientCheck.fb_page_id
+          );
+
+          if (isSenderTheClient) {
+            console.log("🔇 Dropping DM from our own account ID.");
+            continue;
+          }
+
+          // 3. PROCESS THE DM: If it passes both kill switches, save it!
+          if (webhookEvent.message && webhookEvent.message.text) {
             console.log("📨 Received DM:", webhookEvent.message.text);
             
             await supabase.from('b2b_inbox').insert([{
-              ig_username: senderId,
+              ig_username: senderId.toString(),
               incoming_message: webhookEvent.message.text,
               status: 'pending',
-              business_ig_id: businessIgId
+              business_ig_id: businessId.toString()
             }]);
           }
         }
@@ -50,7 +74,7 @@ module.exports = async (req, res) => {
           const change = entry.changes[0];
           
           // PREVENT COMMENT ECHO: Ignore comments posted by the bot itself!
-          if (change.field === 'comments' && change.value.from.id.toString() !== businessIgId.toString()) {
+          if (change.field === 'comments' && change.value.from.id.toString() !== businessId.toString()) {
             const commentId = change.value.id;
             const commentText = change.value.text;
             const commenterUsername = change.value.from.username;
@@ -58,18 +82,17 @@ module.exports = async (req, res) => {
             console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
             
             try {
-              // 1. DYNAMIC LOOKUP: Ask Supabase for this specific client's data
+              // 1. DYNAMIC LOOKUP: Check if the ID belongs to their IG or FB profile
               const { data: client } = await supabase
                 .from('clients')
                 .select('meta_access_token, ig_username')
-                .eq('ig_account_id', businessIgId)
+                .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
-              // 2. THE DYNAMIC KILL SWITCH
-              // If the person commenting matches the client's username in the database, ignore it!
+              // 2. THE DYNAMIC KILL SWITCH (COMMENTS)
               if (client && client.ig_username && commenterUsername.toLowerCase() === client.ig_username.toLowerCase()) {
                 console.log(`Skipping comment - it was posted by the client account: @${commenterUsername}`);
-                return; 
+                continue; 
               }
 
               let replyText = "";
