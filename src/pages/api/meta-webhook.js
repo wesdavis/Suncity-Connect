@@ -56,32 +56,26 @@ module.exports = async (req, res) => {
             continue;
           }
 
-          // 3. PROCESS THE DM: If it passes both kill switches, save it!
+          // 3. PROCESS THE DM: The Bulletproof Database Lock
           if (webhookEvent.message && webhookEvent.message.text) {
+            const messageId = webhookEvent.message.mid; // Meta's unique ID for this exact text bubble
             
-            // --- THE DEDUPLICATION FILTER ---
-            // Fetch the last message this user sent us to see if Meta is double-firing
-            const { data: lastMsg } = await supabase
-              .from('b2b_inbox')
-              .select('incoming_message')
-              .eq('ig_username', senderId.toString())
-              .order('created_at', { ascending: false })
-              .limit(1);
-
-            // If the text perfectly matches their last message, drop it!
-            if (lastMsg && lastMsg.length > 0 && lastMsg[0].incoming_message === webhookEvent.message.text) {
-              console.log("♻️ Duplicate Meta event dropped.");
-              continue;
-            }
-
             console.log("📨 Received DM:", webhookEvent.message.text);
             
-            await supabase.from('b2b_inbox').insert([{
+            const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: senderId.toString(),
               incoming_message: webhookEvent.message.text,
               status: 'pending',
-              business_ig_id: businessId.toString()
+              business_ig_id: businessId.toString(),
+              meta_message_id: messageId 
             }]);
+
+            // '23505' is the Postgres database error code for "Unique Constraint Violation"
+            if (error && error.code === '23505') {
+              console.log("♻️ Race condition caught! The database blocked Meta's duplicate ping.");
+            } else if (error) {
+              console.error("❌ Error inserting DM:", error);
+            }
           }
         }
 
@@ -89,11 +83,20 @@ module.exports = async (req, res) => {
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
-          // PREVENT COMMENT ECHO: Ignore comments posted by the bot itself!
           if (change.field === 'comments' && change.value.from.id.toString() !== businessId.toString()) {
             const commentId = change.value.id;
             const commentText = change.value.text;
             const commenterUsername = change.value.from.username;
+
+            // --- THE DATABASE LOCK FOR COMMENTS ---
+            // Try to insert the comment ID into our bouncer table
+            const { error: lockError } = await supabase.from('handled_comments').insert([{ comment_id: commentId }]);
+            
+            // If it fails, it means we already replied to this comment. Drop the duplicate!
+            if (lockError) {
+              console.log("♻️ Duplicate comment ping dropped by database lock.");
+              continue; 
+            }
 
             console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
             
