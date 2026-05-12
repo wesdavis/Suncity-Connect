@@ -34,7 +34,6 @@ module.exports = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
-    // Fixed prompt with the correct variable: msg.incoming_message
     const prompt = `You are the lead AI sales assistant managing the Instagram DMs for Sun City Connect, an AI automation agency in El Paso, Texas.
 
 CRITICAL RULES:
@@ -69,12 +68,42 @@ User's incoming message: "${msg.incoming_message}"`;
       return res.status(500).json({ error: "Failed to send DM", details: err });
     }
 
+    // --- NEW: THE ANALYST BRAIN (Data Extraction) ---
+    console.log("🔍 Extracting lead intelligence...");
+    const analystModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const extractionPrompt = `Analyze this Instagram DM sent to a local business: "${msg.incoming_message}"
+    
+    Extract the following information and output ONLY a valid, raw JSON object with these exact keys (no markdown formatting):
+    {
+      "intent": "Brief 2-4 word summary of what they want (e.g. 'Pricing Question', 'Ready to Book', 'Support')",
+      "phone": "Any phone number found, or 'Pending' if none",
+      "status": "Rate as 'Hot', 'Warm', or 'Cold' based on urgency/readiness to buy"
+    }`;
+
+    let extractedData = {};
+    try {
+      const analystResult = await analystModel.generateContent(extractionPrompt);
+      // Strip any accidental markdown formatting the AI might add
+      const jsonText = analystResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      extractedData = JSON.parse(jsonText);
+      console.log("📊 Extraction complete:", extractedData);
+    } catch (e) {
+      console.error("❌ Failed to parse extracted JSON:", e);
+      // Fallback empty object so the DB update still works
+      extractedData = { intent: "Unknown", phone: "Pending", status: "Cold" }; 
+    }
+
+    // --- FINAL UPDATE: Save the reply AND the extracted CRM data ---
     await supabase
       .from('b2b_inbox')
-      .update({ ai_reply: aiReply, status: 'replied' })
+      .update({ 
+        ai_reply: aiReply, 
+        status: 'replied',
+        extracted_data: extractedData 
+      })
       .eq('id', msg.id);
 
-    return res.status(200).json({ success: true, message: "DM Sent!" });
+    return res.status(200).json({ success: true, message: "DM Sent & Lead Extracted!" });
 
   } catch (error) {
     console.error("Server Error:", error);
