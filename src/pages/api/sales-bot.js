@@ -32,21 +32,40 @@ module.exports = async (req, res) => {
     console.log(`🧠 Loaded brain for: ${client.business_name}`);
     const META_ACCESS_TOKEN = client.meta_access_token; 
 
+    // --- NEW: FETCH SHORT-TERM MEMORY ---
+    const { data: chatHistory } = await supabase
+      .from('b2b_inbox')
+      .select('incoming_message, ai_reply')
+      .eq('ig_username', msg.ig_username)
+      .neq('id', msg.id) // Exclude the current message so it doesn't double-read it
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    let historyString = "No previous history.";
+    if (chatHistory && chatHistory.length > 0) {
+      // Format the last 3 messages so the AI can read the context
+      historyString = chatHistory.reverse().map(h => `Customer: ${h.incoming_message}\nYou: ${h.ai_reply}`).join('\n');
+    }
+
+    // 5. The Brain: Draft the pitch with MEMORY
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
     const prompt = `
     You are the elite digital sales closer and lead capture assistant for a local business. 
-    Your ultimate goal is to answer the customer's question quickly and smoothly pivot to capturing their phone number or email to get them on the calendar or send a quote.
 
     --- BUSINESS KNOWLEDGE ---
     ${client.custom_prompt}
     
     --- CRITICAL CLOSING RULES ---
-    1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max. No corporate jargon. No robotic greetings like "Hello valued customer."
-    2. GIVE AND TAKE: Answer their immediate question using the Business Knowledge, but never give away everything without asking for a micro-commitment in return.
-    3. THE ASK: If they haven't given us contact info yet, ALWAYS end your message by casually asking for it. (e.g., "What's the best number to text you some options?" or "Where is the best place to email that quote?")
-    4. THE CONFIRMATION: If they just provided their phone/email, do not ask for it again. Confirm you received it, tell them the team will reach out ASAP, and end the conversation.
+    1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
+    2. THE DEMO TRIGGER: If the customer's message contains the word "DEMO", immediately reply with: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar here: "https://calendar.app.google/rbTHX427Am9dFxhN9" and stop asking questions.
+    3. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. 
+    4. THE ASK: If (and only if) we do not have their contact info yet, casually ask for a phone number or email.
 
+    --- RECENT CONVERSATION (Memory) ---
+    ${historyString}
+
+    --- NEW MESSAGE TO REPLY TO ---
     CUSTOMER MESSAGE: "${msg.incoming_message}"
     
     Draft the DM reply:`;
