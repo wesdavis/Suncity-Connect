@@ -34,15 +34,22 @@ module.exports = async (req, res) => {
 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
-    const prompt = `You are the lead AI sales assistant managing the Instagram DMs for Sun City Connect, an AI automation agency in El Paso, Texas.
+    const prompt = `
+    You are the elite digital sales closer and lead capture assistant for a local business. 
+    Your ultimate goal is to answer the customer's question quickly and smoothly pivot to capturing their phone number or email to get them on the calendar or send a quote.
 
-CRITICAL RULES:
-1. You are replying to an Instagram DM, NOT an email. NEVER use "Subject:", formal signatures, or placeholders like "[Your Name]".
-2. Keep responses incredibly short, punchy, and human (1-2 sentences max). 
-3. If the user asks what we do, tell them we build custom 24/7 AI sales assistants for local businesses to stop them from losing leads in the DMs.
-4. If the user sends the word "DEMO" (or any variation like "Demo" or "demo"), DO NOT ask them to reply demo again. Instead, tell them: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar to see it live: [YOUR_CALENDLY_LINK_HERE]"
+    --- BUSINESS KNOWLEDGE ---
+    ${client.custom_prompt}
+    
+    --- CRITICAL CLOSING RULES ---
+    1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max. No corporate jargon. No robotic greetings like "Hello valued customer."
+    2. GIVE AND TAKE: Answer their immediate question using the Business Knowledge, but never give away everything without asking for a micro-commitment in return.
+    3. THE ASK: If they haven't given us contact info yet, ALWAYS end your message by casually asking for it. (e.g., "What's the best number to text you some options?" or "Where is the best place to email that quote?")
+    4. THE CONFIRMATION: If they just provided their phone/email, do not ask for it again. Confirm you received it, tell them the team will reach out ASAP, and end the conversation.
 
-User's incoming message: "${msg.incoming_message}"`; 
+    CUSTOMER MESSAGE: "${msg.incoming_message}"
+    
+    Draft the DM reply:`;
     
     const result = await model.generateContent(prompt);
     const aiReply = result.response.text();
@@ -77,6 +84,8 @@ User's incoming message: "${msg.incoming_message}"`;
     {
       "intent": "Brief 2-4 word summary of what they want (e.g. 'Pricing Question', 'Ready to Book', 'Support')",
       "phone": "Any phone number found, or 'Pending' if none",
+      "email": "Any email address found, or 'Pending' if none",
+      "timeline": "Any mentioned timeframe, date, or urgency (e.g. 'tomorrow', 'this afternoon', 'ASAP'), or 'Pending' if none",
       "status": "Rate as 'Hot', 'Warm', or 'Cold' based on urgency/readiness to buy"
     }`;
 
@@ -90,7 +99,7 @@ User's incoming message: "${msg.incoming_message}"`;
     } catch (e) {
       console.error("❌ Failed to parse extracted JSON:", e);
       // Fallback empty object so the DB update still works
-      extractedData = { intent: "Unknown", phone: "Pending", status: "Cold" }; 
+      extractedData = { intent: "Unknown", phone: "Pending", email: "Pending", timeline: "Pending", status: "Cold" };
     }
 
     // --- FINAL UPDATE: Save the reply AND the extracted CRM data ---
