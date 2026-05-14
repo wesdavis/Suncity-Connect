@@ -18,7 +18,7 @@ export default function Home() {
           <div className="hidden md:flex items-center gap-8 font-bold text-sm">
             <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors">How it Works</a>
             <a href="#pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</a>
-            <a href="/dashboard" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
+            <a href="/login" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
   Client Login
 </a>
           </div>

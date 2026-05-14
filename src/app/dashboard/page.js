@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import { useRouter } from 'next/navigation';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,9 +21,20 @@ export default function PremiumLeadDashboard() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
+  const router = useRouter();
 
   useEffect(() => {
-    async function fetchLeads() {
+    async function checkAuthAndFetchLeads() {
+      // 1. THE BOUNCER: Check if the user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // If they don't have a session, kick them to the login page immediately
+        router.push('/login');
+        return; 
+      }
+
+      // 2. If they are authenticated, fetch the leads
       const { data, error } = await supabase
         .from('b2b_inbox')
         .select('ig_username, extracted_data, created_at, incoming_message, ai_reply')
@@ -34,8 +46,9 @@ export default function PremiumLeadDashboard() {
       }
       setLoading(false);
     }
-    fetchLeads();
-  }, []);
+    
+    checkAuthAndFetchLeads();
+  }, [router]);
 
   const hotLeadsCount = leads.filter(l => l.extracted_data?.status === 'Hot').length;
   const numbersCaught = leads.filter(l => l.extracted_data?.phone && l.extracted_data.phone !== 'Pending').length;
@@ -143,9 +156,18 @@ export default function PremiumLeadDashboard() {
                    <Skeleton className="h-full w-full bg-white/10" />
                 ) : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={platformData} layout="vertical" margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    {/* FIX 1: Removed the negative left margin, added right margin */}
+                    <BarChart data={platformData} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
                       <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 12 }} />
+                      {/* FIX 2: Added width={80} so the words have room to breathe */}
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#a1a1aa', fontSize: 12 }} 
+                        width={80} 
+                      />
                       <RechartsTooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '8px', color: '#fff' }} />
                       <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} />
                     </BarChart>
