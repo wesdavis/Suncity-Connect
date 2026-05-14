@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, ArrowRight, Loader2, Facebook } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react'; // <-- Facebook is GONE from here
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -38,13 +38,11 @@ export default function LoginPage() {
     }
   };
 
-  // NEW: Facebook OAuth Login Handler
   const handleFacebookLogin = async () => {
     setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: {
-        // This tells Supabase where to send them back after they click "Approve" on Facebook
         redirectTo: `${window.location.origin}/dashboard` 
       }
     });
@@ -59,14 +57,12 @@ export default function LoginPage() {
     >
       <div className="w-full max-w-md space-y-8 relative z-10">
         
-        {/* Logo Section */}
         <div className="flex flex-col items-center text-center">
           <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-20 w-auto drop-shadow-2xl mb-6" />
           <h2 className="text-3xl font-black text-white tracking-tight">Welcome Back</h2>
           <p className="text-zinc-400 mt-2 font-medium">Sign in to access your pipeline intelligence.</p>
         </div>
 
-        {/* The Glassmorphic Login Card */}
         <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
           <CardHeader>
             <CardTitle className="text-xl text-white flex items-center gap-2">
@@ -78,13 +74,16 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             
-            {/* NEW: Facebook Login Button */}
             <Button 
               type="button" 
               onClick={handleFacebookLogin}
               className="w-full bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold h-11 mb-6 transition-all"
             >
-              <Facebook className="w-5 h-5 mr-2" /> Continue with Facebook
+              {/* RAW SVG BYPASS - VERCEL CANNOT CRASH ON THIS */}
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
+              </svg>
+              Continue with Facebook
             </Button>
 
             <div className="relative mb-6">
