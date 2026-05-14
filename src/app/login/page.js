@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Loader2, Facebook } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,7 +20,7 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const router = useRouter();
 
-  const handleLogin = async (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -34,9 +34,22 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      // Success! Teleport them to the secure dashboard
       router.push('/dashboard');
     }
+  };
+
+  // NEW: Facebook OAuth Login Handler
+  const handleFacebookLogin = async () => {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        // This tells Supabase where to send them back after they click "Approve" on Facebook
+        redirectTo: `${window.location.origin}/dashboard` 
+      }
+    });
+
+    if (error) setError(error.message);
   };
 
   return (
@@ -64,8 +77,26 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleLogin} className="space-y-6">
-              
+            
+            {/* NEW: Facebook Login Button */}
+            <Button 
+              type="button" 
+              onClick={handleFacebookLogin}
+              className="w-full bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold h-11 mb-6 transition-all"
+            >
+              <Facebook className="w-5 h-5 mr-2" /> Continue with Facebook
+            </Button>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-white/10" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-zinc-950 px-2 text-zinc-500">Or continue with email</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleEmailLogin} className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-zinc-300">Email Address</Label>
                 <div className="relative">
@@ -109,11 +140,9 @@ export default function LoginPage() {
               >
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4 ml-2" /></>}
               </Button>
-
             </form>
           </CardContent>
         </Card>
-        
       </div>
     </div>
   );

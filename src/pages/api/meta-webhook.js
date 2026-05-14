@@ -42,7 +42,7 @@ module.exports = async (req, res) => {
           // 2. THE DYNAMIC KILL SWITCH: Look up both IG and FB IDs in Supabase
           const { data: clientCheck } = await supabase
             .from('clients')
-            .select('ig_account_id, fb_page_id')
+            .select('ig_account_id, fb_page_id, meta_access_token') // <-- WE NOW PULL THE ACCESS TOKEN
             .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
             .single();
 
@@ -56,21 +56,41 @@ module.exports = async (req, res) => {
             continue;
           }
 
-          // 3. PROCESS THE DM: The Bulletproof Database Lock
+          // 3. PROCESS THE DM & FETCH REAL HANDLE
           if (webhookEvent.message && webhookEvent.message.text) {
-            const messageId = webhookEvent.message.mid; // Meta's unique ID for this exact text bubble
+            const messageId = webhookEvent.message.mid; 
             
             console.log("📨 Received DM:", webhookEvent.message.text);
+
+            // --- NEW: FETCH THE REAL HANDLE FROM META ---
+            let realHandle = senderId.toString(); // Default to numbers just in case
             
+            if (clientCheck && clientCheck.meta_access_token) {
+              try {
+                // Ping Meta's Graph API to ask for the username attached to this ID
+                const profileUrl = `https://graph.facebook.com/v18.0/${senderId}?fields=username,name&access_token=${clientCheck.meta_access_token}`;
+                const profileRes = await fetch(profileUrl);
+                
+                if (profileRes.ok) {
+                  const profileData = await profileRes.json();
+                  // Prefer the IG username, fallback to FB name, fallback to raw ID
+                  realHandle = profileData.username || profileData.name || senderId.toString();
+                  console.log(`👤 Resolved ID ${senderId} to Handle: @${realHandle}`);
+                }
+              } catch (e) {
+                console.error("❌ Failed to fetch user handle from Meta:", e);
+              }
+            }
+            
+            // Insert into the database using the beautiful, real handle!
             const { error } = await supabase.from('b2b_inbox').insert([{
-              ig_username: senderId.toString(),
+              ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
               status: 'pending',
               business_ig_id: businessId.toString(),
               meta_message_id: messageId 
             }]);
 
-            // '23505' is the Postgres database error code for "Unique Constraint Violation"
             if (error && error.code === '23505') {
               console.log("♻️ Race condition caught! The database blocked Meta's duplicate ping.");
             } else if (error) {
