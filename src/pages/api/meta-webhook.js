@@ -102,7 +102,7 @@ module.exports = async (req, res) => {
               business_ig_id: businessId.toString(),
               meta_message_id: messageId, 
               platform: platformName,
-              lead_source: leadSource
+              lead_source: leadSource,
               meta_sender_id: senderId.toString()
             }]);
 
