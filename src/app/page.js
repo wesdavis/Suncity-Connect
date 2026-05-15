@@ -46,10 +46,24 @@ export default function Home() {
             We build 24/7 custom AI sales assistants for local businesses. Never miss a late-night DM or lose another lead to a competitor.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full sm:w-auto">
-            <button className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-4 px-10 rounded-full flex items-center justify-center gap-2 transition-transform hover:scale-105 shadow-xl shadow-orange-500/20">
-              Get a Live Demo <ArrowRight size={24} />
-            </button>
+          <div className="flex flex-col sm:flex-row items-center gap-4 justify-center w-full sm:w-auto mt-4">
+            {/* GOOGLE CALENDAR DEMO LINK */}
+            <a 
+              href="https://calendar.app.google/rbTHX427Am9dFxhN9" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-black text-lg py-4 px-10 rounded-full flex items-center justify-center gap-2 transition-transform hover:scale-105 shadow-xl shadow-orange-500/20"
+            >
+              Book a Live Demo <ArrowRight size={24} />
+            </a>
+            
+            {/* SCROLL TO PRICING BUTTON */}
+            <a 
+              href="#pricing" 
+              className="w-full sm:w-auto bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-black text-lg py-4 px-10 rounded-full flex items-center justify-center transition-transform hover:scale-105 shadow-sm"
+            >
+              View Pricing ($99/mo)
+            </a>
           </div>
         </div>
       </main>
@@ -179,9 +193,15 @@ export default function Home() {
               ))}
             </ul>
 
-            <button className="w-full bg-slate-900 hover:bg-orange-500 text-white font-black text-lg py-5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
-              Start Your Free Demo
-            </button>
+            {/* STRIPE CHECKOUT LINK */}
+            <a 
+              href="https://buy.stripe.com/test_YOUR_PAYMENT_LINK_HERE" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="block text-center w-full bg-slate-900 hover:bg-orange-500 text-white font-black text-lg py-5 rounded-2xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+            >
+              Start Automating Today
+            </a>
           </div>
         </div>
       </section>
