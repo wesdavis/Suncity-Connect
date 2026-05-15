@@ -147,12 +147,19 @@ module.exports = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
+              
               // 4. GET CLIENT CREDENTIALS
               const { data: client } = await supabase
                 .from('clients')
-                .select('meta_access_token')
+                .select('meta_access_token, is_bot_active') // <-- Added is_bot_active
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
+
+              // --- NEW: THE KILL SWITCH ---
+              if (client && client.is_bot_active === false) {
+                 console.log(`⏸️ Bot is PAUSED. Dropping comment reply.`);
+                 continue; 
+              }
 
               let replyText = "";
               const cleanText = commentText.toLowerCase().trim();

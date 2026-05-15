@@ -30,14 +30,25 @@ module.exports = async (req, res) => {
       return res.status(200).json({ error: 'Client not found in Rolodex' });
     }
 
+    if (client.is_bot_active === false) {
+      console.log(`⏸️ Bot is currently PAUSED for ${client.business_name}. Ignoring DM.`);
+      // Update the message so it doesn't stay 'pending' forever
+      await supabase.from('b2b_inbox').update({ status: 'paused_by_user' }).eq('id', msg.id);
+      return res.status(200).json({ message: "Ignored - Bot is paused by client" });
+    }
+
     console.log(`🧠 Loaded brain for: ${client.business_name}`);
     const META_ACCESS_TOKEN = client.meta_access_token; 
 
-    // --- NEW: FETCH SHORT-TERM MEMORY ---
+    // --- NEW: FETCH SHORT-TERM MEMORY (OMNI-CHANNEL FIX) ---
+    // Fallback to ig_username for older leads, but prioritize the numeric sender ID
+    const matchColumn = msg.meta_sender_id ? 'meta_sender_id' : 'ig_username';
+    const matchValue = msg.meta_sender_id || msg.ig_username;
+
     const { data: chatHistory } = await supabase
       .from('b2b_inbox')
       .select('incoming_message, ai_reply')
-      .eq('ig_username', msg.ig_username)
+      .eq(matchColumn, matchValue)
       .neq('id', msg.id) // Exclude the current message so it doesn't double-read it
       .order('created_at', { ascending: false })
       .limit(3);
