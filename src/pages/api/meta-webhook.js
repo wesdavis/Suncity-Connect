@@ -114,55 +114,62 @@ module.exports = async (req, res) => {
           }
         }
 
-        // --- B. CATCH PUBLIC COMMENTS ---
+        // --- B. CATCH PUBLIC COMMENTS (OMNI-CHANNEL) ---
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
-          if (change.field === 'comments' && change.value.from.id.toString() !== businessId.toString()) {
-            const commentId = change.value.id;
-            const commentText = change.value.text;
-            const commenterUsername = change.value.from.username;
+          // 1. THE DETECTOR: Is it an Instagram comment OR a Facebook Page comment?
+          const isIGComment = change.field === 'comments';
+          const isFBComment = change.field === 'feed' && change.value.item === 'comment';
 
-            // --- THE DATABASE LOCK FOR COMMENTS ---
-            // Try to insert the comment ID into our bouncer table
+          if (isIGComment || isFBComment) {
+            // 2. THE TRANSLATOR: Normalize the data since FB and IG use different variable names
+            const commentId = isIGComment ? change.value.id : change.value.comment_id;
+            const commentText = isIGComment ? change.value.text : change.value.message;
+            
+            // Skip if there's no sender data (happens if someone deletes their comment)
+            if (!change.value.from) continue;
+
+            // Ensure the business didn't post the comment themselves
+            if (change.value.from.id.toString() === businessId.toString()) continue;
+
+            const commenterName = change.value.from.username || change.value.from.name || "User";
+            const platformName = isIGComment ? "Instagram" : "Facebook";
+
+            // 3. THE DATABASE LOCK: Prevent duplicate replies
             const { error: lockError } = await supabase.from('handled_comments').insert([{ comment_id: commentId }]);
             
-            // If it fails, it means we already replied to this comment. Drop the duplicate!
             if (lockError) {
-              console.log("♻️ Duplicate comment ping dropped by database lock.");
+              console.log(`♻️ Duplicate ${platformName} comment dropped by database lock.`);
               continue; 
             }
 
-            console.log(`💬 Received Comment from @${commenterUsername}: ${commentText}`);
+            console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
-              // 1. DYNAMIC LOOKUP: Check if the ID belongs to their IG or FB profile
+              // 4. GET CLIENT CREDENTIALS
               const { data: client } = await supabase
                 .from('clients')
-                .select('meta_access_token, ig_username')
+                .select('meta_access_token')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
-
-              // 2. THE DYNAMIC KILL SWITCH (COMMENTS)
-              if (client && client.ig_username && commenterUsername.toLowerCase() === client.ig_username.toLowerCase()) {
-                console.log(`Skipping comment - it was posted by the client account: @${commenterUsername}`);
-                continue; 
-              }
 
               let replyText = "";
               const cleanText = commentText.toLowerCase().trim();
 
-              // 3. GENERATE REPLY
+              // 5. GENERATE REPLY
               if (cleanText.includes('demo')) {
-                replyText = `Hey @${commenterUsername}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
+                // The Viral CTA Trigger
+                replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else {
+                // The AI General Response
                 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-                const prompt = `You are replying to a public Instagram comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
+                const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
                 const result = await model.generateContent(prompt);
                 replyText = result.response.text().trim();
               }
 
-              // 4. POST REPLY
+              // 6. POST THE REPLY TO META
               if (client && client.meta_access_token) {
                 const url = `https://graph.facebook.com/v18.0/${commentId}/replies`;
                 const response = await fetch(url, {
@@ -176,9 +183,9 @@ module.exports = async (req, res) => {
 
                 if (!response.ok) {
                   const errorData = await response.json();
-                  console.error("❌ Failed to post comment reply:", JSON.stringify(errorData));
+                  console.error(`❌ Failed to post ${platformName} comment reply:`, JSON.stringify(errorData));
                 } else {
-                  console.log(`✅ Successfully replied to comment with: ${replyText}`);
+                  console.log(`✅ Successfully replied to ${platformName} comment with: ${replyText}`);
                 }
               }
             } catch (error) {
