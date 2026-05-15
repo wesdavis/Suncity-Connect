@@ -75,8 +75,9 @@ module.exports = async (req, res) => {
     const aiReply = result.response.text();
     console.log(`AI drafted reply: ${aiReply}`);
 
+    // Use the numeric ID to reply. (Fallback to ig_username just in case it's an old message)
     const metaPayload = {
-      recipient: { id: msg.ig_username },
+      recipient: { id: msg.meta_sender_id || msg.ig_username },
       message: { text: aiReply }
     };
 

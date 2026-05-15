@@ -103,6 +103,7 @@ module.exports = async (req, res) => {
               meta_message_id: messageId, 
               platform: platformName,
               lead_source: leadSource
+              meta_sender_id: senderId.toString()
             }]);
 
             if (error && error.code === '23505') {
