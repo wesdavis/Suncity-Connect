@@ -18,10 +18,11 @@ module.exports = async (req, res) => {
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+    // NEW CODE - LOOKS FOR BOTH INSTAGRAM AND FACEBOOK
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('*')
-      .eq('ig_account_id', msg.business_ig_id)
+      .or(`ig_account_id.eq.${msg.business_ig_id},fb_page_id.eq.${msg.business_ig_id}`)
       .single();
 
     if (clientError || !client) {
@@ -97,7 +98,7 @@ module.exports = async (req, res) => {
     // --- NEW: THE ANALYST BRAIN (Data Extraction) ---
     console.log("🔍 Extracting lead intelligence...");
     const analystModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const extractionPrompt = `Analyze this Instagram DM sent to a local business: "${msg.incoming_message}"
+    const extractionPrompt = `Analyze this Instagram or Facebook DM sent to a local business: "${msg.incoming_message}"
     
     Extract the following information and output ONLY a valid, raw JSON object with these exact keys (no markdown formatting):
     {
