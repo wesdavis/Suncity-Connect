@@ -1,17 +1,23 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon } from 'lucide-react';
+// ADDED: Menu, LogOut, CreditCard
+import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard } from 'lucide-react'; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+// ADDED: SheetTrigger
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { useRouter } from 'next/navigation';
+// ADDED: Button
+import { Button } from "@/components/ui/button";
+
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -22,6 +28,10 @@ export default function PremiumLeadDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState(null);
   const router = useRouter();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   useEffect(() => {
     async function checkAuthAndFetchLeads() {
@@ -37,7 +47,7 @@ export default function PremiumLeadDashboard() {
       // 2. If they are authenticated, fetch the leads
       const { data, error } = await supabase
         .from('b2b_inbox')
-        .select('ig_username, extracted_data, created_at, incoming_message, ai_reply')
+        .select('ig_username, extracted_data, created_at, incoming_message, ai_reply, platform, lead_source') // <-- Added columns here
         .not('extracted_data', 'is', null)
         .order('created_at', { ascending: false });
 
@@ -56,16 +66,19 @@ export default function PremiumLeadDashboard() {
   const getInitials = (name) => name ? name.substring(0, 2).toUpperCase() : '??';
 
   const pipelineData = [
-    { name: 'Hot Leads', value: hotLeadsCount, color: '#f97316' }, 
-    { name: 'Warm Leads', value: leads.filter(l => l.extracted_data?.status === 'Warm').length, color: '#3b82f6' }, 
-    { name: 'Cold Leads', value: leads.filter(l => l.extracted_data?.status === 'Cold').length, color: '#71717a' }, 
+    { name: 'Hot Leads', value: hotLeadsCount, color: '#f92516' }, 
+    { name: 'Warm Leads', value: leads.filter(l => l.extracted_data?.status === 'Warm').length, color: '#e0c61b' }, 
+    { name: 'Cold Leads', value: leads.filter(l => l.extracted_data?.status === 'Cold').length, color: '#0808fa' }, 
   ].filter(item => item.value > 0); 
 
-  // Mocking the platform split for the visual UI until the webhook is updated
+  // DYNAMIC PLATFORM CALCULATOR
+  const igCount = leads.filter(l => l.platform === 'Instagram').length;
+  const fbCount = leads.filter(l => l.platform === 'Facebook').length;
+  
   const platformData = [
-    { name: 'Instagram', value: Math.ceil(leads.length * 0.8) || 0, fill: '#ec4899' },
-    { name: 'Facebook', value: Math.floor(leads.length * 0.2) || 0, fill: '#3b82f6' }
-  ];
+    { name: 'Instagram', value: igCount, fill: '#cd8808' },
+    { name: 'Facebook', value: fbCount, fill: '#3b82f6' }
+  ].filter(item => item.value > 0); // Only show platforms that actually have leads
 
   return (
     // THE BACKGROUND: Custom image with a dark overlay to ensure text stays readable
@@ -75,13 +88,52 @@ export default function PremiumLeadDashboard() {
     >
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* Header Section with Logo */}
-        <div className="flex items-center gap-6 mb-10">
-          <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
-          <div>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white">Wes's Dashboard</h1>
-            <p className="text-zinc-400 mt-1 text-lg">Real-time pipeline intelligence and AI chat logs.</p>
+        {/* Header Section with Logo & Navigation */}
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-6">
+            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-white">Wes's Dashboard</h1>
+              <p className="text-zinc-400 mt-1 text-lg">Real-time pipeline intelligence and AI chat logs.</p>
+            </div>
           </div>
+
+          {/* NEW: Hamburger Menu */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all">
+                <Menu className="h-5 w-5 mr-2" /> Menu
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl">
+              <SheetHeader className="text-left mt-6 mb-8">
+                <SheetTitle className="text-2xl font-black text-white">Account Menu</SheetTitle>
+                <SheetDescription className="text-zinc-400">
+                  Manage your agency settings and membership.
+                </SheetDescription>
+              </SheetHeader>
+              
+              <div className="flex flex-col gap-4 flex-1">
+                {/* Stripe Portal Link */}
+                <a href="https://billing.stripe.com/p/login/test_YOUR_LINK_HERE" target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                    <CreditCard className="w-5 h-5 mr-3 text-blue-400" /> Manage Membership
+                  </Button>
+                </a>
+              </div>
+
+              {/* Log Out Button pinned to the bottom */}
+              <div className="pb-6">
+                <Button 
+                  onClick={handleLogout} 
+                  variant="destructive" 
+                  className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base"
+                >
+                  <LogOut className="w-5 h-5 mr-3" /> Sign Out
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
 
         {/* Top Metric Cards - GLASSMORPHISM */}
@@ -263,10 +315,10 @@ export default function PremiumLeadDashboard() {
               Live conversation logged by the AI Sales Assistant.
             </SheetDescription>
             
-            {/* NEW: Visual Placeholder for Content Origin */}
+            {/* DYNAMIC: Visual Tracking for Content Origin */}
             <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-zinc-400">
               <LinkIcon className="h-4 w-4" />
-              <span>Source: <span className="text-zinc-300 font-medium">Direct Message</span></span>
+              <span>Source: <span className="text-zinc-300 font-medium">{selectedLead?.lead_source || 'Direct Message'}</span> on {selectedLead?.platform || 'Instagram'}</span>
             </div>
           </SheetHeader>
           
