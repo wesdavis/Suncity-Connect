@@ -7,21 +7,32 @@ export default function Home() {
       {/* NAVIGATION */}
       <nav className="w-full bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          
+          {/* LOGO */}
           <div className="flex items-center">
-            {/* UPDATED LOGO: Added object-left so it stays anchored, bumped height */}
             <img 
               src="/assets/SCC_logo.png" 
               alt="Sun City Connect Logo" 
-              className="h-16 md:h-20 w-auto object-contain object-left drop-shadow-sm hover:scale-105 transition-transform origin-left" 
+              className="h-12 md:h-20 w-auto object-contain object-left drop-shadow-sm hover:scale-105 transition-transform origin-left" 
             />
           </div>
+          
+          {/* DESKTOP NAV (Hidden on Mobile) */}
           <div className="hidden md:flex items-center gap-8 font-bold text-sm">
             <a href="#how-it-works" className="text-slate-600 hover:text-slate-900 transition-colors">How it Works</a>
             <a href="#pricing" className="text-slate-600 hover:text-slate-900 transition-colors">Pricing</a>
             <a href="/login" className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-md hover:shadow-lg">
-  Client Login
-</a>
+              Client Login
+            </a>
           </div>
+
+          {/* MOBILE NAV (Hidden on Desktop) */}
+          <div className="md:hidden flex items-center">
+            <a href="/login" className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-full text-sm font-bold shadow-md">
+              Login
+            </a>
+          </div>
+
         </div>
       </nav>
 
