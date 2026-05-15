@@ -81,28 +81,29 @@ export default function PremiumLeadDashboard() {
   ].filter(item => item.value > 0); // Only show platforms that actually have leads
 
   return (
-    // THE BACKGROUND: Custom image with a dark overlay to ensure text stays readable
+    // THE BACKGROUND: Mobile-optimized padding (p-4 on phone, p-8 on desktop)
     <div 
-      className="dark min-h-screen p-8 pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center"
+      className="dark min-h-screen p-4 md:p-8 pt-8 md:pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center"
       style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}
     >
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         
         {/* Header Section with Logo & Navigation */}
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-6">
-            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
+        <div className="flex items-center justify-between mb-6 md:mb-10">
+          {/* Mobile-optimized gap, logo size, and text size */}
+          <div className="flex items-center gap-3 md:gap-6">
+            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-10 md:h-16 w-auto drop-shadow-lg" />
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white">Wes's Dashboard</h1>
-              <p className="text-zinc-400 mt-1 text-lg">Real-time pipeline intelligence and AI chat logs.</p>
+              <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white">Wes's Dashboard</h1>
+              <p className="text-zinc-400 mt-1 text-sm md:text-lg">Real-time pipeline intelligence and AI chat logs.</p>
             </div>
           </div>
 
-          {/* NEW: Hamburger Menu */}
+          {/* NEW: Hamburger Menu (Pushed right, smaller padding on mobile) */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all">
-                <Menu className="h-5 w-5 mr-2" /> Menu
+              <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all px-3 md:px-4">
+                <Menu className="h-5 w-5 md:mr-2" /> <span className="hidden md:inline">Menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl">
