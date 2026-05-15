@@ -82,13 +82,28 @@ module.exports = async (req, res) => {
               }
             }
             
-            // Insert into the database using the beautiful, real handle!
+            // --- NEW: DETECT PLATFORM AND LEAD SOURCE ---
+            const platformName = body.object === 'instagram' ? 'Instagram' : 'Facebook';
+            let leadSource = "Direct Message";
+
+            // Check if they swiped up on an Instagram Story
+            if (webhookEvent.message.reply_to && webhookEvent.message.reply_to.story) {
+              leadSource = "Story Reply";
+            } 
+            // Check if they clicked a "Send Message" button on a Meta Ad
+            else if (webhookEvent.message.referral && webhookEvent.message.referral.source === "ADS") {
+              leadSource = "Meta Ad Click";
+            }
+
+            // Insert into the database with the new tracking data!
             const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
               status: 'pending',
               business_ig_id: businessId.toString(),
-              meta_message_id: messageId 
+              meta_message_id: messageId,
+              platform: platformName,     // <-- NEW
+              lead_source: leadSource     // <-- NEW
             }]);
 
             if (error && error.code === '23505') {
