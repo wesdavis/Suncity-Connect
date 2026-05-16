@@ -218,8 +218,17 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="py-10 border-t border-slate-200 bg-white text-center text-slate-400 font-medium text-sm">
-        <p>© 2026 Sun City Connect. A DuckNutz LLC Company. All rights reserved.</p>
+      <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-slate-200 mt-20 flex flex-col md:flex-row items-center justify-between text-sm text-slate-500">
+        <p>© {new Date().getFullYear()} Sun City Connect. Built in El Paso, TX.</p>
+        
+        <div className="flex items-center gap-6 mt-4 md:mt-0">
+          <a href="/privacy" className="hover:text-slate-900 font-medium transition-colors">
+            Privacy Policy
+          </a>
+          <a href="#" className="hover:text-slate-900 font-medium transition-colors">
+            Terms of Service
+          </a>
+        </div>
       </footer>
 
     </div>
