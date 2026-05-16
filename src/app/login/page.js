@@ -43,7 +43,9 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: {
-        redirectTo: `${window.location.origin}/dashboard` 
+        redirectTo: `${window.location.origin}/dashboard`,
+        // NEW: Tell Meta to explicitly ask for these permissions in the popup!
+        scopes: 'pages_show_list, pages_messaging, pages_read_engagement, pages_manage_engagement' 
       }
     });
 
@@ -102,7 +104,7 @@ export default function LoginPage() {
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
                   <Input 
                     type="email" 
-                    placeholder="wes@suncityconnect.com" 
+                    placeholder="Login" 
                     className="pl-10 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
