@@ -41,25 +41,36 @@ module.exports = async (req, res) => {
     const generatedCaption = result.response.text().trim();
     console.log("✅ Copy generated!");
 
-    // 3. Generate the Image using the Artist prompt
+    // 3. Generate the Image using Google's Imagen 3 API
     console.log("🎨 Dreaming up the campaign image...");
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${process.env.GEMINI_API_KEY}`;
+    
     const imagePrompt = `A cinematic, dark-mode, high-contrast professional photograph of a modern business owner's desk. Glowing purple and neon blue accents. A sleek smartphone screen illuminating the dark. The visual vibe matches this B2B automation tagline: "${generatedCaption}". Absolutely NO text or letters in the image.`;
 
     const imageResponse = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: imagePrompt }] }]
+        instances: [
+          { prompt: imagePrompt }
+        ],
+        parameters: {
+          sampleCount: 1,
+          aspectRatio: "1:1"
+        }
       })
     });
 
     const imageData = await imageResponse.json();
     let base64Image = null;
     
-    if (imageData.candidates && imageData.candidates[0].content.parts[0].inlineData) {
-      base64Image = imageData.candidates[0].content.parts[0].inlineData.data;
+    // Imagen 3 returns the base64 string inside the "predictions" array
+    if (imageData.predictions && imageData.predictions[0].bytesBase64Encoded) {
+      base64Image = imageData.predictions[0].bytesBase64Encoded;
       console.log("✅ Image generated successfully!");
+    } else {
+      console.error("❌ Image API Error:", imageData);
     }
 
     return res.status(200).json({ 
@@ -67,9 +78,8 @@ module.exports = async (req, res) => {
       campaign: generatedCaption,
       image: base64Image
     });
-
   } catch (error) {
-    console.error("❌ Marketing Engine Error:", error);
-    return res.status(500).json({ error: error.message });
+    console.error('❌ Marketing engine error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
