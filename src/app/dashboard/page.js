@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles } from 'lucide-react'; 
+import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library } from 'lucide-react'; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -144,20 +144,26 @@ export default function PremiumLeadDashboard() {
                   </button>
                 </div>
 
-                {/* AI Marketing Engine Link */}
+                {/* AI Social Manager Link */}
                 <a href="/dashboard/marketing">
                   <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                    <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Content Engine
+                    <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Social Manager
+                  </Button>
+                </a>
+
+                {/* NEW: Campaign Vault Link */}
+                <a href="/dashboard/library">
+                  <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                    <Library className="w-5 h-5 mr-3 text-blue-400" /> Campaign Vault
                   </Button>
                 </a>
 
                 {/* Stripe Portal Link */}
                 <a href="https://billing.stripe.com/p/login/test_YOUR_LINK_HERE" target="_blank" rel="noopener noreferrer">
                   <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                    <CreditCard className="w-5 h-5 mr-3 text-blue-400" /> Manage Membership
+                    <CreditCard className="w-5 h-5 mr-3 text-green-400" /> Manage Membership
                   </Button>
                 </a>
-              </div>
 
               {/* Log Out Button */}
               <div className="pb-6">

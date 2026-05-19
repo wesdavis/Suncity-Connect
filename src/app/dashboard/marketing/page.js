@@ -175,11 +175,39 @@ export default function MarketingEngine() {
           </Link>
         </div>
 
+        {/* Header Section */}
+        <div className="flex items-center justify-between mb-10">
+          <div className="flex items-center gap-6">
+            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
+            <div>
+              <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
+                <Sparkles className="text-orange-500 w-8 h-8" />
+                AI Social Manager
+              </h1>
+              <p className="text-zinc-400 mt-1 text-lg">Your automated assistant for designing, writing, and preparing social posts.</p>
+            </div>
+          </div>
+          
+          {/* Navigation Button Group */}
+          <div className="flex gap-4">
+            <Link href="/dashboard/library">
+              <Button className="bg-zinc-800 border-white/10 text-white hover:bg-zinc-700 font-bold transition-all shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+                <ImageIcon className="w-4 h-4 mr-2" /> View Vault
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Pipeline
+              </Button>
+            </Link>
+          </div>
+        </div>
+
         <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">
           <CardHeader>
-            <CardTitle className="text-xl text-white">Launch a New Campaign</CardTitle>
+            <CardTitle className="text-xl text-white">Draft Your Next Post</CardTitle>
             <CardDescription className="text-zinc-400">
-              Our AI reads your last 50 DMs, identifies what customers want most right now, and designs a complete visual campaign to capture them.
+              Your AI assistant will analyze your recent inbox trends to uncover what customers are asking about right now, then design a ready-to-publish graphic and caption for you.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
@@ -190,7 +218,7 @@ export default function MarketingEngine() {
               className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold h-12 px-8 text-base transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)]"
             >
               {loading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Megaphone className="w-5 h-5 mr-2" />}
-              {loading ? "Analyzing Inbox & Generating Assets..." : "Generate Campaign"}
+              {loading ? "Designing Your Post..." : "Draft a New Post"}
             </Button>
 
             {campaign && (

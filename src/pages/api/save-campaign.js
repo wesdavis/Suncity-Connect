@@ -1,13 +1,22 @@
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase with the service role key to bypass row-level security for server uploads
 const supabase = createClient(
   process.env.SUPABASE_URL, 
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-module.exports = async (req, res) => {
+// NEW: This tells Vercel to allow up to 10MB payloads so the high-res images can pass through!
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
+
+export default async function handler(req, res) { // NOTE: changed from module.exports to export default for Next.js
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  
 
   try {
     const { headline, caption, imageBase64 } = req.body;
