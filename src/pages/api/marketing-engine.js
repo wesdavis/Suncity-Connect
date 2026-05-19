@@ -1,14 +1,15 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleAuth } = require('google-auth-library');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); // Keeps text generation free/fast
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    console.log("🚀 Starting the Inbox Insights Marketing Engine...");
+    console.log("🚀 Starting the Enterprise Marketing Engine...");
 
     // 1. Fetch the last 50 customer DMs
     const { data: recentDMs, error: dbError } = await supabase
@@ -21,7 +22,7 @@ module.exports = async (req, res) => {
 
     const messageHistory = recentDMs.map(dm => dm.incoming_message).join('\n- ');
 
-    // 2. Generate the Ad Copy
+    // 2. Generate the Ad Copy (Still using Gemini Flash for speed)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `
       You are an elite growth marketer for a local business in El Paso, TX. 
@@ -41,20 +42,34 @@ module.exports = async (req, res) => {
     const generatedCaption = result.response.text().trim();
     console.log("✅ Copy generated!");
 
-    // 3. Generate the Image using Google's Imagen 3 API
-    console.log("🎨 Dreaming up the campaign image...");
+    // 3. ENTERPRISE IMAGE GENERATION: Vertex AI (Imagen 3)
+    console.log("🎨 Dreaming up the enterprise campaign image...");
     
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${process.env.GEMINI_API_KEY}`;
+    // Authenticate using the JSON we pasted into Vercel
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    const auth = new GoogleAuth({
+      credentials,
+      scopes: 'https://www.googleapis.com/auth/cloud-platform'
+    });
     
+    const client = await auth.getClient();
+    const accessToken = (await client.getAccessToken()).token;
+    const projectId = await auth.getProjectId();
+    
+    // Hit the secure Vertex AI endpoint
+    const location = 'us-central1'; // Standard Vertex region
+    const vertexUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-3.0-generate-001:predict`;
+
     const imagePrompt = `A cinematic, dark-mode, high-contrast professional photograph of a modern business owner's desk. Glowing purple and neon blue accents. A sleek smartphone screen illuminating the dark. The visual vibe matches this B2B automation tagline: "${generatedCaption}". Absolutely NO text or letters in the image.`;
 
-    const imageResponse = await fetch(url, {
+    const imageResponse = await fetch(vertexUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify({
-        instances: [
-          { prompt: imagePrompt }
-        ],
+        instances: [{ prompt: imagePrompt }],
         parameters: {
           sampleCount: 1,
           aspectRatio: "1:1"
@@ -65,12 +80,12 @@ module.exports = async (req, res) => {
     const imageData = await imageResponse.json();
     let base64Image = null;
     
-    // Imagen 3 returns the base64 string inside the "predictions" array
+    // Extract the raw image bytes from Vertex AI
     if (imageData.predictions && imageData.predictions[0].bytesBase64Encoded) {
       base64Image = imageData.predictions[0].bytesBase64Encoded;
-      console.log("✅ Image generated successfully!");
+      console.log("✅ Enterprise Image generated successfully!");
     } else {
-      console.error("❌ Image API Error:", imageData);
+      console.error("❌ Vertex AI Error:", JSON.stringify(imageData, null, 2));
     }
 
     return res.status(200).json({ 
@@ -78,8 +93,9 @@ module.exports = async (req, res) => {
       campaign: generatedCaption,
       image: base64Image
     });
+
   } catch (error) {
-    console.error('❌ Marketing engine error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error("❌ Marketing Engine Error:", error);
+    return res.status(500).json({ error: error.message });
   }
 };
