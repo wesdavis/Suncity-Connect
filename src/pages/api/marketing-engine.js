@@ -10,7 +10,7 @@ module.exports = async (req, res) => {
   try {
     console.log("🚀 Starting the Inbox Insights Marketing Engine...");
 
-    // 1. Fetch the last 50 customer DMs to find real pain points
+    // 1. Fetch the last 50 customer DMs
     const { data: recentDMs, error: dbError } = await supabase
       .from('b2b_inbox')
       .select('incoming_message')
@@ -19,10 +19,9 @@ module.exports = async (req, res) => {
 
     if (dbError) throw dbError;
 
-    // Extract just the text of the messages
     const messageHistory = recentDMs.map(dm => dm.incoming_message).join('\n- ');
 
-    // 2. The Analyst Brain (Gemini)
+    // 2. Generate the Ad Copy
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `
       You are an elite growth marketer for a local business in El Paso, TX. 
@@ -40,12 +39,33 @@ module.exports = async (req, res) => {
 
     const result = await model.generateContent(prompt);
     const generatedCaption = result.response.text().trim();
+    console.log("✅ Copy generated!");
 
-    console.log("✅ Campaign generated successfully!");
+    // 3. Generate the Image using the Artist prompt
+    console.log("🎨 Dreaming up the campaign image...");
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const imagePrompt = `A cinematic, dark-mode, high-contrast professional photograph of a modern business owner's desk. Glowing purple and neon blue accents. A sleek smartphone screen illuminating the dark. The visual vibe matches this B2B automation tagline: "${generatedCaption}". Absolutely NO text or letters in the image.`;
+
+    const imageResponse = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: imagePrompt }] }]
+      })
+    });
+
+    const imageData = await imageResponse.json();
+    let base64Image = null;
     
+    if (imageData.candidates && imageData.candidates[0].content.parts[0].inlineData) {
+      base64Image = imageData.candidates[0].content.parts[0].inlineData.data;
+      console.log("✅ Image generated successfully!");
+    }
+
     return res.status(200).json({ 
       success: true, 
-      campaign: generatedCaption 
+      campaign: generatedCaption,
+      image: base64Image
     });
 
   } catch (error) {
