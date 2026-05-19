@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Megaphone, Loader2, Copy, CheckCircle2, ArrowLeft, Image as ImageIcon, Download } from 'lucide-react';
+import { Sparkles, Megaphone, Loader2, Copy, CheckCircle2, ArrowLeft, Image as ImageIcon, Download, Save } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from 'next/link';
@@ -10,22 +10,26 @@ export default function MarketingEngine() {
   const [loading, setLoading] = useState(false);
   const [branding, setBranding] = useState(false);
   
-  // NEW: Added the headline state right here!
   const [headline, setHeadline] = useState(null); 
   const [campaign, setCampaign] = useState(null);
   const [imageStr, setImageStr] = useState(null);
   const [copied, setCopied] = useState(false);
 
+  // NEW: State for the Save to Library button
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   const generateCampaign = async () => {
     setLoading(true);
-    setHeadline(null); // Clear old headline
+    setHeadline(null);
     setCampaign(null);
     setImageStr(null);
+    setSaved(false); // Reset save state on new generation
     try {
       const response = await fetch('/api/marketing-engine', { method: 'POST' });
       const data = await response.json();
       if (data.success) {
-        setHeadline(data.headline); // Save new headline from backend
+        setHeadline(data.headline); 
         setCampaign(data.campaign);
         setImageStr(data.image);
       }
@@ -41,16 +45,43 @@ export default function MarketingEngine() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // NEW: The Save to Library Function
+  const saveToLibrary = async () => {
+    if (!headline || !campaign || !imageStr) return;
+    setSaving(true);
+    
+    try {
+      const response = await fetch('/api/save-campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headline: headline,
+          caption: campaign,
+          imageBase64: imageStr
+        })
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        setSaved(true);
+      } else {
+        console.error("Failed to save:", data.error);
+      }
+    } catch (error) {
+      console.error("Save error:", error);
+    }
+    setSaving(false);
+  };
+
   // THE BROWSER-BASED AI ARTIST 🎨
   const downloadBrandedAsset = async () => {
-    if (!imageStr || !campaign || !headline) return; // Added headline check
+    if (!imageStr || !campaign || !headline) return;
     setBranding(true);
 
     try {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
 
-      // 1. Load Background Image
       const bgImg = new Image();
       bgImg.crossOrigin = "Anonymous";
       bgImg.src = `data:image/jpeg;base64,${imageStr}`;
@@ -59,14 +90,11 @@ export default function MarketingEngine() {
       canvas.width = bgImg.width;
       canvas.height = bgImg.height;
 
-      // 2. Draw Background
       ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
 
-      // 3. Add Dark Cinematic Overlay
       ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // 4. Load & Draw Logo
       const logoImg = new Image();
       logoImg.src = '/assets/SCC_logo.png'; 
       await new Promise((resolve) => (logoImg.onload = resolve));
@@ -77,14 +105,12 @@ export default function MarketingEngine() {
       const logoY = canvas.height - logoHeight - (canvas.height * 0.05);
       ctx.drawImage(logoImg, logoX, logoY, logoWidth, logoHeight);
 
-      // 5. Draw the Ad Text
       ctx.fillStyle = '#FFFFFF';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const fontSize = Math.floor(canvas.width / 16);
       ctx.font = `bold ${fontSize}px sans-serif`;
 
-      // Word Wrapping Logic
       const wrapText = (context, text, x, y, maxWidth, lineHeight) => {
         const words = text.split(' ');
         let line = '';
@@ -108,10 +134,9 @@ export default function MarketingEngine() {
 
       const textCenterY = canvas.height * 0.45;
       
-      // NEW: Drawing the headline variable on the image instead of the campaign text
+      // Removed the hardcoded quotes from the headline here!
       wrapText(ctx, headline, canvas.width / 2, textCenterY, canvas.width * 0.85, fontSize * 1.3);
 
-      // 6. Trigger Download
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `SunCity_Campaign_${Date.now()}.png`;
@@ -131,7 +156,6 @@ export default function MarketingEngine() {
     >
       <div className="max-w-5xl mx-auto space-y-8">
         
-        {/* Header Section */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-6">
             <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
@@ -203,16 +227,14 @@ export default function MarketingEngine() {
                   </div>
                 </div>
 
-                {/* NEW: Updated Text Display Block */}
+                {/* Text Display */}
                 <div className="p-6 bg-zinc-900/50 rounded-xl border border-white/10 relative group flex flex-col">
                   
-                  {/* Headline Preview */}
                   <div className="mb-2 bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-bold text-orange-500 uppercase tracking-wider rounded-md border border-white/10 w-fit">
                     Image Headline
                   </div>
                   <h3 className="text-white text-2xl font-black mb-6 tracking-tight">"{headline}"</h3>
 
-                  {/* Caption Preview */}
                   <div className="mb-2 bg-black/60 backdrop-blur-md px-3 py-1 text-xs font-bold text-blue-400 uppercase tracking-wider rounded-md border border-white/10 w-fit">
                     Post Caption
                   </div>
@@ -220,14 +242,29 @@ export default function MarketingEngine() {
                     {campaign}
                   </p>
                   
-                  <Button 
-                    variant="outline" 
-                    onClick={copyToClipboard}
-                    className="mt-6 w-full bg-zinc-800 border-white/10 hover:bg-zinc-700 hover:text-white"
-                  >
-                    {copied ? <CheckCircle2 className="w-4 h-4 mr-2 text-green-400" /> : <Copy className="w-4 h-4 mr-2" />}
-                    {copied ? "Copied to Clipboard" : "Copy Caption"}
-                  </Button>
+                  {/* NEW: Split Action Buttons */}
+                  <div className="flex gap-4 mt-6">
+                    <Button 
+                      variant="outline" 
+                      onClick={copyToClipboard}
+                      className="flex-1 bg-zinc-800 border-white/10 hover:bg-zinc-700 hover:text-white"
+                    >
+                      {copied ? <CheckCircle2 className="w-4 h-4 mr-2 text-green-400" /> : <Copy className="w-4 h-4 mr-2" />}
+                      {copied ? "Copied" : "Copy Caption"}
+                    </Button>
+
+                    <Button 
+                      variant="outline" 
+                      onClick={saveToLibrary}
+                      disabled={saving || saved}
+                      className={`flex-1 border-white/10 hover:text-white transition-all ${saved ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-zinc-800 hover:bg-zinc-700'}`}
+                    >
+                      {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : 
+                       saved ? <CheckCircle2 className="w-4 h-4 mr-2" /> : 
+                       <Save className="w-4 h-4 mr-2" />}
+                      {saving ? "Saving..." : saved ? "Saved!" : "Save to Library"}
+                    </Button>
+                  </div>
                 </div>
 
               </div>
