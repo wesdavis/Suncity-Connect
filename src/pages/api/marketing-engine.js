@@ -22,7 +22,7 @@ module.exports = async (req, res) => {
 
     const messageHistory = recentDMs.map(dm => dm.incoming_message).join('\n- ');
 
-    // 2. Generate the Ad Copy (Still using Gemini Flash for speed)
+    // 2. Generate the Ad Copy & Headline (Structured JSON)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `
       You are an elite growth marketer for a local business in El Paso, TX. 
@@ -34,13 +34,24 @@ module.exports = async (req, res) => {
       1. Identify the most common question or frustration these customers have.
       2. Write a short, punchy Instagram ad caption (under 40 words) that directly answers this specific pain point.
       3. The Call to Action MUST tell the user to comment the word "DEMO" to trigger our automated AI bot.
+      4. Write a separate, ultra-short "Headline" (max 5 words) to be overlaid directly onto the image.
       
-      Output ONLY the final ad caption. No quotes, no intro text.
+      Output ONLY a valid, raw JSON object with these exact keys (no markdown formatting):
+      {
+        "headline": "Ultra-short 5-word image text",
+        "caption": "The full Instagram caption"
+      }
     `;
 
     const result = await model.generateContent(prompt);
-    const generatedCaption = result.response.text().trim();
-    console.log("✅ Copy generated!");
+    
+    // Clean the AI response and parse the JSON
+    const jsonText = result.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+    const generatedData = JSON.parse(jsonText);
+    
+    const generatedHeadline = generatedData.headline;
+    const generatedCaption = generatedData.caption;
+    console.log("✅ Copy generated! Headline:", generatedHeadline);
 
     // 3. ENTERPRISE IMAGE GENERATION: Vertex AI (Imagen 3)
     console.log("🎨 Dreaming up the enterprise campaign image...");
@@ -90,6 +101,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ 
       success: true, 
+      headline: generatedHeadline, // <-- ADD THIS
       campaign: generatedCaption,
       image: base64Image
     });
