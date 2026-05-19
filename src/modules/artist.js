@@ -76,7 +76,7 @@ async function createAdImage(tagline) {
     ctx.font = `bold ${fontSize}px sans-serif`;
 
     const textCenterY = canvas.height * 0.45;
-    wrapText(ctx, tagline, canvas.width / 2, textCenterY, canvas.width * 0.8, fontSize * 1.3);
+    wrapText(ctx, '"Stop Losing DM Sales."', canvas.width / 2, textCenterY, canvas.width * 0.85, fontSize * 1.3);
 
     const fileName = `suncity_ai_ad_${Date.now()}.png`;
     const outPath = path.join(outFolder, fileName);

@@ -109,7 +109,7 @@ export default function MarketingEngine() {
       const textCenterY = canvas.height * 0.45;
       
       // NEW: Drawing the headline variable on the image instead of the campaign text
-      wrapText(ctx, `"${headline}"`, canvas.width / 2, textCenterY, canvas.width * 0.85, fontSize * 1.3);
+      wrapText(ctx, headline, canvas.width / 2, textCenterY, canvas.width * 0.85, fontSize * 1.3);
 
       // 6. Trigger Download
       const dataUrl = canvas.toDataURL('image/png');

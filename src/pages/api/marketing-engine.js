@@ -99,14 +99,33 @@ module.exports = async (req, res) => {
       console.error("❌ Vertex AI Error:", JSON.stringify(imageData, null, 2));
     }
 
+   // 3. (utility) Hashtag Generator
+    const generateHashtags = (captionText) => {
+      const lower = captionText.toLowerCase();
+      const tags = ['#b2b', '#marketingautomation']; // Base default tags.
+
+      if (lower.includes('el paso')) tags.push('#elpaso', '#elpasobusiness');
+      if (lower.includes('leads') || lower.includes('sales')) tags.push('#smallbiztips', '#leadgeneration');
+      if (lower.includes('automated') || lower.includes('bot')) tags.push('#ai', '#chatbot');
+
+      // Return as a space-separated string.
+      return [...new Set(tags)].join(' ');
+    };
+
+    const finalHashtags = generateHashtags(generatedCaption);
+    const captionWithHashtags = `${generatedCaption} ${finalHashtags}`;
+
+    console.log("✅ Branded assets ready!");
+    
     return res.status(200).json({ 
       success: true, 
-      headline: generatedHeadline, // <-- ADD THIS
-      campaign: generatedCaption,
+      headline: generatedHeadline,
+      campaign: captionWithHashtags, // The client now receives the final caption string
       image: base64Image
     });
 
   } catch (error) {
+    // ...error handling...
     console.error("❌ Marketing Engine Error:", error);
     return res.status(500).json({ error: error.message });
   }
