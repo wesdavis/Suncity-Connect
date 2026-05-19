@@ -165,15 +165,16 @@ export default function PremiumLeadDashboard() {
                   </Button>
                 </a>
 
-              {/* Log Out Button */}
-              <div className="pb-6">
-                <Button 
-                  onClick={handleLogout} 
-                  variant="destructive" 
-                  className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base"
-                >
-                  <LogOut className="w-5 h-5 mr-3" /> Sign Out
-                </Button>
+                {/* Log Out Button */}
+                <div className="pb-6">
+                  <Button 
+                    onClick={handleLogout} 
+                    variant="destructive" 
+                    className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base"
+                  >
+                    <LogOut className="w-5 h-5 mr-3" /> Sign Out
+                  </Button>
+                </div>
               </div>
             </SheetContent>
           </Sheet>
