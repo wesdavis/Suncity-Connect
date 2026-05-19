@@ -156,25 +156,6 @@ export default function MarketingEngine() {
     >
       <div className="max-w-5xl mx-auto space-y-8">
         
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-6">
-            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
-            <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Sparkles className="text-orange-500 w-8 h-8" />
-                AI Content Engine
-              </h1>
-              <p className="text-zinc-400 mt-1 text-lg">Generate hyper-targeted ads based on your actual customer DMs.</p>
-            </div>
-          </div>
-          
-          <Link href="/dashboard">
-            <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back to Pipeline
-            </Button>
-          </Link>
-        </div>
-
         {/* Header Section */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-6">
@@ -205,9 +186,10 @@ export default function MarketingEngine() {
 
         <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">
           <CardHeader>
-            <CardTitle className="text-xl text-white">Draft Your Next Post</CardTitle>
+            <CardTitle className="text-xl text-white">Draft Your Next Post - Need help creating content? Just click the button below!</CardTitle>
             <CardDescription className="text-zinc-400">
               Your AI assistant will analyze your recent inbox trends to uncover what customers are asking about right now, then design a ready-to-publish graphic and caption for you.
+              
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
