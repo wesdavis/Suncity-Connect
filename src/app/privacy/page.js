@@ -63,13 +63,13 @@ export default function PrivacyPolicy() {
             </p>
             <div className="bg-zinc-100 dark:bg-white/5 p-4 rounded-lg border border-zinc-200 dark:border-white/10 mt-2">
               <p className="font-medium">To request data deletion:</p>
-              <p className="mt-1 text-zinc-600 dark:text-zinc-400">Send an email to <strong>privacy@suncityconnect.com</strong> with the subject line "Data Deletion Request" and include your exact Instagram or Facebook handle.</p>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-400">Send an email to <strong>wes@suncityconnect.com</strong> with the subject line "Data Deletion Request" and include your exact Instagram or Facebook handle.</p>
             </div>
           </section>
 
           <section className="space-y-3">
             <h2 className="text-xl font-bold">6. Contact Us</h2>
-            <p>If you have questions or concerns regarding this Privacy Policy, please contact our team operating locally out of El Paso, TX at privacy@suncityconnect.com.</p>
+            <p>If you have questions or concerns regarding this Privacy Policy, please contact our team operating locally out of El Paso, TX at wes@suncityconnect.com or on Facebook/Instagram.</p>
           </section>
 
         </div>
