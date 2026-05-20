@@ -157,31 +157,33 @@ export default function MarketingEngine() {
       <div className="max-w-5xl mx-auto space-y-8">
         
         {/* Header Section */}
-        <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-6">
-            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-16 w-auto drop-shadow-lg" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 md:mb-10 gap-6 md:gap-0">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-12 md:h-16 w-auto drop-shadow-lg self-start sm:self-auto" />
             <div>
-              <h1 className="text-4xl font-extrabold tracking-tight text-white flex items-center gap-3">
-                <Sparkles className="text-orange-500 w-8 h-8" />
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white flex items-center gap-2 md:gap-3">
+                <Sparkles className="text-orange-500 w-6 h-6 md:w-8 md:h-8 shrink-0" />
                 AI Social Manager
               </h1>
-              <p className="text-zinc-400 mt-1 text-lg">Your automated assistant for designing, writing, and preparing social posts.</p>
+              <p className="text-zinc-400 mt-1 text-sm md:text-lg">Your automated assistant for designing, writing, and preparing social posts.</p>
             </div>
           </div>
           
           {/* Navigation Button Group */}
-          <div className="flex gap-4">
-            <Link href="/dashboard/library">
-              <Button className="bg-zinc-800 border-white/10 text-white hover:bg-zinc-700 font-bold transition-all shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4 w-full md:w-auto">
+            <Link href="/dashboard/library" className="flex-1 md:flex-none">
+              <Button className="w-full bg-zinc-800 border-white/10 text-white hover:bg-zinc-700 font-bold transition-all shadow-[0_0_15px_rgba(255,255,255,0.05)]">
                 <ImageIcon className="w-4 h-4 mr-2" /> View Vault
               </Button>
             </Link>
-            <Link href="/dashboard">
-              <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800">
-                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Pipeline
+            <Link href="/dashboard" className="flex-1 md:flex-none">
+              <Button variant="outline" className="w-full bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800">
+                <ArrowLeft className="w-4 h-4 mr-2" /> Pipeline
               </Button>
             </Link>
           </div>
+          
         </div>
 
         <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">
