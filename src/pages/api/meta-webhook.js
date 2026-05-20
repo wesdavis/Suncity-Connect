@@ -208,20 +208,25 @@ module.exports = async (req, res) => {
 
                 // --- 7. NEW: THE PRIVATE DM (SLIDE INTO INBOX) ---
                 if (cleanText.includes('demo')) {
-                  const dmUrl = `https://graph.facebook.com/v18.0/${commentId}/private_replies`;
+                  // NEW: Using the unified Messenger API instead of the deprecated classic endpoint
+                  const dmUrl = `https://graph.facebook.com/v18.0/me/messages`;
                   const dmText = "Hey! Here is the link to grab a spot on Wes's calendar: https://calendar.app.google/rbTHX427Am9dFxhN9 Let me know if you have any questions! 🚀";
 
                   const dmResponse = await fetch(dmUrl, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                      message: dmText,
-                      access_token: client.meta_access_token
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${client.meta_access_token}`
+                    },
+                    body: JSON.stringify({
+                      recipient: { comment_id: commentId },
+                      message: { text: dmText }
                     })
                   });
 
                   if (!dmResponse.ok) {
-                    console.error(`❌ Failed to send Private DM for ${platformName}:`, await dmResponse.text());
+                    const errorText = await dmResponse.text();
+                    console.error(`❌ Failed to send Private DM for ${platformName}:`, errorText);
                   } else {
                     console.log(`✉️ Successfully slid into DMs for ${platformName} comment!`);
                   }
