@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library } from 'lucide-react'; 
+import { Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit } from 'lucide-react'; 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +143,13 @@ export default function PremiumLeadDashboard() {
                     <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive ? 'translate-x-6' : 'translate-x-1'}`} />
                   </button>
                 </div>
+
+                {/* NEW: AI Brain Link */}
+                <a href="/dashboard/brain">
+                  <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                    <BrainCircuit className="w-5 h-5 mr-3 text-purple-400" /> Configure AI Brain
+                  </Button>
+                </a>
 
                 {/* AI Social Manager Link */}
                 <a href="/dashboard/marketing">
