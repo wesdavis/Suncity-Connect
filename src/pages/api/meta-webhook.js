@@ -186,8 +186,7 @@ module.exports = async (req, res) => {
               // 6. POST THE REPLY TO META
               if (client && client.meta_access_token) {
                 
-                // FIX 2: THE OMNI-CHANNEL ENDPOINT SWITCH
-                // Instagram uses /replies, Facebook uses /comments
+                // --- THE PUBLIC REPLY ---
                 const endpoint = isIGComment ? 'replies' : 'comments';
                 const url = `https://graph.facebook.com/v18.0/${commentId}/${endpoint}`;
 
@@ -205,6 +204,27 @@ module.exports = async (req, res) => {
                   console.error(`❌ Failed to post ${platformName} comment reply:`, JSON.stringify(errorData));
                 } else {
                   console.log(`✅ Successfully replied to ${platformName} comment with: ${replyText}`);
+                }
+
+                // --- 7. NEW: THE PRIVATE DM (SLIDE INTO INBOX) ---
+                if (cleanText.includes('demo')) {
+                  const dmUrl = `https://graph.facebook.com/v18.0/${commentId}/private_replies`;
+                  const dmText = "Hey! Here is the link to grab a spot on Wes's calendar: https://calendar.app.google/rbTHX427Am9dFxhN9 Let me know if you have any questions! 🚀";
+
+                  const dmResponse = await fetch(dmUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      message: dmText,
+                      access_token: client.meta_access_token
+                    })
+                  });
+
+                  if (!dmResponse.ok) {
+                    console.error(`❌ Failed to send Private DM for ${platformName}:`, await dmResponse.text());
+                  } else {
+                    console.log(`✉️ Successfully slid into DMs for ${platformName} comment!`);
+                  }
                 }
               }
             } catch (error) {
