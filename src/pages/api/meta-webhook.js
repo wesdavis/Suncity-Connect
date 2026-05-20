@@ -114,7 +114,7 @@ module.exports = async (req, res) => {
           }
         }
 
-        // --- B. CATCH PUBLIC COMMENTS (OMNI-CHANNEL) ---
+       // --- B. CATCH PUBLIC COMMENTS (OMNI-CHANNEL) ---
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
@@ -129,6 +129,13 @@ module.exports = async (req, res) => {
             
             // Skip if there's no sender data (happens if someone deletes their comment)
             if (!change.value.from) continue;
+
+            // FIX 1: THE CRASH SAFEGUARD
+            // If the user just posts a GIF or photo, there is no text. Drop it so the app doesn't crash.
+            if (!commentText) {
+              console.log("🔇 Dropping comment because it contains no text payload.");
+              continue;
+            }
 
             // Ensure the business didn't post the comment themselves
             if (change.value.from.id.toString() === businessId.toString()) continue;
@@ -151,11 +158,11 @@ module.exports = async (req, res) => {
               // 4. GET CLIENT CREDENTIALS
               const { data: client } = await supabase
                 .from('clients')
-                .select('meta_access_token, is_bot_active') // <-- Added is_bot_active
+                .select('meta_access_token, is_bot_active')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
-              // --- NEW: THE KILL SWITCH ---
+              // --- THE KILL SWITCH ---
               if (client && client.is_bot_active === false) {
                  console.log(`⏸️ Bot is PAUSED. Dropping comment reply.`);
                  continue; 
@@ -178,7 +185,12 @@ module.exports = async (req, res) => {
 
               // 6. POST THE REPLY TO META
               if (client && client.meta_access_token) {
-                const url = `https://graph.facebook.com/v18.0/${commentId}/replies`;
+                
+                // FIX 2: THE OMNI-CHANNEL ENDPOINT SWITCH
+                // Instagram uses /replies, Facebook uses /comments
+                const endpoint = isIGComment ? 'replies' : 'comments';
+                const url = `https://graph.facebook.com/v18.0/${commentId}/${endpoint}`;
+
                 const response = await fetch(url, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
