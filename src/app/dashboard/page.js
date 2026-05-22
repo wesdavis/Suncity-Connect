@@ -105,6 +105,8 @@ export default function PremiumLeadDashboard() {
 
         {/* Header Section */}
         <div className="flex items-center justify-between mb-6 md:mb-10">
+          
+          {/* Left Side: Logo and Title */}
           <div className="flex items-center gap-3 md:gap-6">
             <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-10 md:h-16 w-auto drop-shadow-lg" />
             <div>
@@ -116,101 +118,100 @@ export default function PremiumLeadDashboard() {
             </div>
           </div>
 
-          {/* Avatar & User Controls on the right */}
-          {userProfile && (
-            <div className="flex items-center gap-4 hidden md:flex">
-              <Avatar className="h-12 w-12 border-2 border-zinc-800 shadow-lg">
-                <AvatarImage src={userProfile.avatar_url} alt={userProfile.full_name} />
-                {/* Fallback uses your existing getInitials function */}
-                <AvatarFallback className="bg-orange-500 text-white font-bold">
-                  {getInitials(userProfile.full_name)}
-                </AvatarFallback>
-              </Avatar>
-              <Button onClick={handleLogout} variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
-        </div>
+          {/* Right Side: Avatar, Logout, and Menu Button */}
+          <div className="flex items-center gap-4">
+            
+            {/* Avatar & Fast Logout (Hidden on extra small screens) */}
+            {userProfile && (
+              <div className="hidden sm:flex items-center gap-4">
+                <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-zinc-800 shadow-lg">
+                  <AvatarImage src={userProfile.avatar_url} alt={userProfile.full_name} />
+                  <AvatarFallback className="bg-orange-500 text-white font-bold">
+                    {getInitials(userProfile.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <Button onClick={handleLogout} variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800">
+                  <LogOut className="h-5 w-5" />
+                </Button>
+              </div>
+            )}
 
+            {/* The Account Menu Sheet */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all px-3 md:px-4">
+                  <Menu className="h-5 w-5 md:mr-2" /> <span className="hidden md:inline">Menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl">
+                <SheetHeader className="text-left mt-6 mb-8">
+                  <SheetTitle className="text-2xl font-black text-white">Account Menu</SheetTitle>
+                  <SheetDescription className="text-zinc-400">
+                    Manage your agency settings and membership.
+                  </SheetDescription>
+                </SheetHeader>
 
+                <div className="flex flex-col gap-4 flex-1">
+                  {/* THE KILL SWITCH UI */}
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/10">
+                    <div className="flex flex-col">
+                      <span className="text-white font-bold flex items-center gap-2">
+                        <Flame className={`w-4 h-4 ${isBotActive ? 'text-orange-500' : 'text-zinc-500'}`} />
+                        AI Sales Bot
+                      </span>
+                      <span className="text-zinc-400 text-xs mt-1">Pause all automated replies.</span>
+                    </div>
 
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all px-3 md:px-4">
-              <Menu className="h-5 w-5 md:mr-2" /> <span className="hidden md:inline">Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl">
-            <SheetHeader className="text-left mt-6 mb-8">
-              <SheetTitle className="text-2xl font-black text-white">Account Menu</SheetTitle>
-              <SheetDescription className="text-zinc-400">
-                Manage your agency settings and membership.
-              </SheetDescription>
-            </SheetHeader>
+                    <button
+                      onClick={toggleBot}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive ? 'bg-orange-500' : 'bg-zinc-700'}`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
 
-            <div className="flex flex-col gap-4 flex-1">
+                  {/* AI Brain Link */}
+                  <a href="/dashboard/brain">
+                    <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                      <BrainCircuit className="w-5 h-5 mr-3 text-purple-400" /> Configure AI Brain
+                    </Button>
+                  </a>
 
-              {/* THE KILL SWITCH UI */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/10">
-                <div className="flex flex-col">
-                  <span className="text-white font-bold flex items-center gap-2">
-                    <Flame className={`w-4 h-4 ${isBotActive ? 'text-orange-500' : 'text-zinc-500'}`} />
-                    AI Sales Bot
-                  </span>
-                  <span className="text-zinc-400 text-xs mt-1">Pause all automated replies.</span>
+                  {/* AI Social Manager Link */}
+                  <a href="/dashboard/marketing">
+                    <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                      <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Social Manager
+                    </Button>
+                  </a>
+
+                  {/* Campaign Vault Link */}
+                  <a href="/dashboard/library">
+                    <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                      <Library className="w-5 h-5 mr-3 text-blue-400" /> Campaign Vault
+                    </Button>
+                  </a>
+
+                  {/* Stripe Portal Link */}
+                  <a href="https://billing.stripe.com/p/login/test_YOUR_LINK_HERE" target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                      <CreditCard className="w-5 h-5 mr-3 text-green-400" /> Manage Membership
+                    </Button>
+                  </a>
+
+                  {/* Log Out Button */}
+                  <div className="pb-6">
+                    <Button
+                      onClick={handleLogout}
+                      variant="destructive"
+                      className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base"
+                    >
+                      <LogOut className="w-5 h-5 mr-3" /> Sign Out
+                    </Button>
+                  </div>
                 </div>
-
-                <button
-                  onClick={toggleBot}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive ? 'bg-orange-500' : 'bg-zinc-700'}`}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive ? 'translate-x-6' : 'translate-x-1'}`} />
-                </button>
-              </div>
-
-              {/* NEW: AI Brain Link */}
-              <a href="/dashboard/brain">
-                <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                  <BrainCircuit className="w-5 h-5 mr-3 text-purple-400" /> Configure AI Brain
-                </Button>
-              </a>
-
-              {/* AI Social Manager Link */}
-              <a href="/dashboard/marketing">
-                <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                  <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Social Manager
-                </Button>
-              </a>
-
-              {/* NEW: Campaign Vault Link */}
-              <a href="/dashboard/library">
-                <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                  <Library className="w-5 h-5 mr-3 text-blue-400" /> Campaign Vault
-                </Button>
-              </a>
-
-              {/* Stripe Portal Link */}
-              <a href="https://billing.stripe.com/p/login/test_YOUR_LINK_HERE" target="_blank" rel="noopener noreferrer">
-                <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                  <CreditCard className="w-5 h-5 mr-3 text-green-400" /> Manage Membership
-                </Button>
-              </a>
-
-              {/* Log Out Button */}
-              <div className="pb-6">
-                <Button
-                  onClick={handleLogout}
-                  variant="destructive"
-                  className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base"
-                >
-                  <LogOut className="w-5 h-5 mr-3" /> Sign Out
-                </Button>
-              </div>
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
+              </SheetContent>
+            </Sheet>
+          </div>
 
       {/* Top Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -384,7 +385,9 @@ export default function PremiumLeadDashboard() {
           </Card>
         </div>
       </div>
-    </div><Sheet open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>
+    </div>
+  </div>
+    <Sheet open={!!selectedLead} onOpenChange={(open) => !open &&     setSelectedLead(null)}>
         <SheetContent className="w-full sm:max-w-md bg-zinc-950/90 backdrop-blur-3xl border-l border-white/10 p-0 flex flex-col shadow-2xl">
           <SheetHeader className="p-6 border-b border-white/5 bg-black/20">
             <SheetTitle className="flex items-center justify-between text-xl text-white">
@@ -427,6 +430,7 @@ export default function PremiumLeadDashboard() {
           </ScrollArea>
         </SheetContent>
       </Sheet>
-    </>
+  
+  </div>  </>
   );
 }
