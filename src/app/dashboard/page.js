@@ -35,8 +35,25 @@ export default function PremiumLeadDashboard() {
   const [isBotActive, setIsBotActive] = useState(true);
   
   const toggleBot = async () => {
+    // 1. Optimistically update the UI so it feels instant to the user
     const newState = !isBotActive;
     setIsBotActive(newState);
+
+    // 2. Fire the update to your newly linked Supabase table
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const { error } = await supabase
+        .from('clients')
+        .update({ is_bot_active: newState })
+        .eq('user_id', session.user.id);
+        
+      if (error) {
+        console.error("Failed to update bot status:", error);
+        // Revert the button if the database failed
+        setIsBotActive(!newState); 
+      }
+    }
   };
 
   useEffect(() => {
