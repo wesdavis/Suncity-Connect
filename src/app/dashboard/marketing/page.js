@@ -51,15 +51,23 @@ export default function MarketingEngine() {
     setSaving(true);
     
     try {
-      const response = await fetch('/api/save-campaign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          headline: headline,
-          caption: campaign,
-          imageBase64: imageStr
-        })
-      });
+      // Get the session
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  const response = await fetch('/api/marketing-engine', { 
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      // Send the secure token, NOT the user ID
+      'Authorization': `Bearer ${session?.access_token}` 
+    },
+    body: JSON.stringify({
+      // Send your other data here, but NO userId
+      headline: headline,
+      caption: campaign,
+      imageBase64: imageStr
+    })
+  });
       
       const data = await response.json();
       if (data.success) {
