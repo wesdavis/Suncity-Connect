@@ -223,7 +223,7 @@ export default function PremiumLeadDashboard() {
                     {/* DYNAMIC STRIPE LINK */}
                     <a 
                       href={isSubscribed 
-                        ? "https://billing.stripe.com/p/login/bpc_1Ta5OL2MJxJeVXhRblgtbWIN" 
+                        ? "https://billing.stripe.com/p/login/https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03" 
                         : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`
                       } 
                       target="_blank" 
