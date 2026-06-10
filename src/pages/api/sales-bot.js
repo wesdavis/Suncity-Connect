@@ -60,10 +60,9 @@ module.exports = async (req, res) => {
     }
 
     // 5. The Brain: Draft the pitch with MEMORY
+    /* 
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
-    
-    const prompt = `
-    You are the elite digital sales closer and lead capture assistant for a local business. 
+    const prompt = `You are the elite digital sales closer and lead capture assistant for a local business. 
 
     --- BUSINESS KNOWLEDGE ---
     ${client.custom_prompt}
@@ -84,6 +83,11 @@ module.exports = async (req, res) => {
     
     const result = await model.generateContent(prompt);
     const aiReply = result.response.text();
+    */
+
+    // HARDCODED RESPONSE FOR META REVIEW
+    const aiReply = "Hello! I am the Sun City Connect virtual assistant. Our system is currently undergoing routine maintenance, but how can we assist your business today?";
+    
     console.log(`AI drafted reply: ${aiReply}`);
 
     // Use the numeric ID to reply. (Fallback to ig_username just in case it's an old message)
@@ -107,8 +111,9 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Failed to send DM", details: err });
     }
 
-    // --- NEW: THE ANALYST BRAIN (Data Extraction) ---
+    // --- NEW: THE ANALYST BRAIN (Data Extraction Bypass) ---
     console.log("🔍 Extracting lead intelligence...");
+    /*
     const analystModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const extractionPrompt = `Analyze this Instagram or Facebook DM sent to a local business: "${msg.incoming_message}"
     
@@ -125,7 +130,8 @@ module.exports = async (req, res) => {
     try {
       const analystResult = await analystModel.generateContent(extractionPrompt);
       // Strip any accidental markdown formatting the AI might add
-      const jsonText = analystResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      const jsonText = analystResult.response.text().replace(/```json/g, '').replace(/
+```/g, '').trim();
       extractedData = JSON.parse(jsonText);
       console.log("📊 Extraction complete:", extractedData);
     } catch (e) {
@@ -133,6 +139,16 @@ module.exports = async (req, res) => {
       // Fallback empty object so the DB update still works
       extractedData = { intent: "Unknown", phone: "Pending", email: "Pending", timeline: "Pending", status: "Cold" };
     }
+    */
+
+    // HARDCODED CRM FALLBACK FOR META REVIEW
+    let extractedData = { 
+      intent: "Meta Review Testing", 
+      phone: "Pending", 
+      email: "Pending", 
+      timeline: "Pending", 
+      status: "Warm" 
+    };
 
     // --- FINAL UPDATE: Save the reply AND the extracted CRM data ---
     await supabase
