@@ -61,7 +61,7 @@ module.exports = async (req, res) => {
 
     // 5. The Brain: Draft the pitch with MEMORY
      
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
     const prompt = `You are the elite digital sales closer and lead capture assistant for a local business. 
 
     --- BUSINESS KNOWLEDGE ---
