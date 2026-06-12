@@ -175,16 +175,13 @@ module.exports = async (req, res) => {
               if (cleanText.includes('demo')) {
                 // The Viral CTA Trigger
                 replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
-              } else {
-  // The AI General Response
-  // const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-  // const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
-  // const result = await model.generateContent(prompt);
-  // replyText = result.response.text().trim();
-
-  // HARDCODED COMMENT FOR META REVIEW
-  replyText = "Thanks for reaching out! We are currently undergoing routine maintenance but will DM you shortly! 🎉";
-}
+              } else { 
+                
+                //The AI General Response
+                const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+                const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
+                const result = await model.generateContent(prompt);
+                replyText = result.response.text().trim();}
 
               // 6. POST THE REPLY TO META
               if (client && client.meta_access_token) {
