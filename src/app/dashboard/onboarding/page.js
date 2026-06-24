@@ -1,26 +1,33 @@
 'use client';
+
 import { useState } from 'react';
-import { Loader2, ArrowRight, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, CheckCircle2, Link as LinkIcon, Calendar, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 
 export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
   
   const [formData, setFormData] = useState({
-  businessName: '',
-  industry: 'recruiting',
-  streetAddress: '',
-  suite: '',
-  city: 'El Paso', // Defaulting to El Paso saves local clients a keystroke
-  state: 'TX',     // Defaulting to TX
-  zipCode: '',
-  primaryColor: '#ea580c', 
-  logoUrl: '',
-  companyBio: '',
-  screeningRule: ''
-});
+    businessName: '',
+    industry: 'recruiting',
+    streetAddress: '',
+    suite: '',
+    city: 'El Paso', 
+    state: 'TX',    
+    zipCode: '',
+    primaryColor: '#ea580c', 
+    logoUrl: '',
+    companyBio: '',
+    screeningRule: '',
+    calendarUrl: '', // NEW: The booking link
+    isBotActive: true, // NEW: Toggle between Bot and Calendar layout
+    enableCalendar: false // NEW: Toggle for calendar integration
+  });
 
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 3));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
@@ -31,16 +38,58 @@ export default function OnboardingWizard() {
 
   const submitOnboarding = async () => {
     setLoading(true);
-    // This will send a POST request to update the 'clients' table in Supabase
-    console.log("Deploying E-Real Estate Data...", formData);
-    setLoading(false);
+
+    try {
+      // 1. Initialize Supabase
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // 2. Verify the user is logged in
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.error("No active session found.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Compile the AI Rules
+      const compiledPrompt = `COMPANY BIO: ${formData.companyBio}\n\nSTRICT RULES: ${formData.screeningRule}`;
+
+      // 4. Push the data to the client's row
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          business_name: formData.businessName,
+          industry: formData.industry,
+          street_address: formData.streetAddress,
+          city: formData.city,
+          state: formData.state,
+          zip_code: formData.zipCode,
+          primary_color: formData.primaryColor,
+          is_bot_active: formData.isBotActive,
+          calendar_url: formData.calendarUrl || null, // Saves as null if left blank
+          custom_prompt: compiledPrompt
+        })
+        .eq('user_id', session.user.id);
+
+      if (error) throw error;
+
+      // 5. Success! Route them to their new dashboard
+      router.push('/dashboard');
+      
+    } catch (error) {
+      console.error("Failed to deploy storefront:", error.message);
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4">
       <Card className="w-full max-w-xl bg-zinc-900 border-white/10 text-white">
         
-        {/* Google-style Top Progress Bar */}
+        {/* Progress Bar */}
         <div className="w-full h-1.5 bg-zinc-800 rounded-t-xl overflow-hidden">
           <div 
             className="h-full bg-orange-500 transition-all duration-300"
@@ -52,123 +101,212 @@ export default function OnboardingWizard() {
           <span className="text-xs font-bold text-orange-500 uppercase tracking-widest">Step {step} of 3</span>
           <CardTitle className="text-2xl font-black">
             {step === 1 && "Tell us about your business"}
-            {step === 2 && "Customize your digital storefront branding"}
+            {step === 2 && "Features & Branding"}
             {step === 3 && "Train your AI screening agent"}
           </CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-6">
           
-          {/* STEP 1: Core Info Inputs */}
-{step === 1 && (
-  <div className="space-y-4 animate-in fade-in duration-200">
-    <p className="text-sm text-zinc-400">
-      Let's set up the base profile for your new website hosting layer and local SEO mapping.
-    </p>
-
-    {/* Business Name */}
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-zinc-300">Business Name</label>
-      <input
-        type="text"
-        placeholder="e.g. Sun City Staffing"
-        className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
-        value={formData.businessName}
-        onChange={(e) => handleFieldChange('businessName', e.target.value)}
-      />
-    </div>
-
-    {/* Industry Dropdown */}
-    <div className="space-y-1.5">
-      <label className="text-sm font-medium text-zinc-300">Industry / Template Type</label>
-      <select
-        className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white focus:outline-none focus:border-orange-500 transition-colors"
-        value={formData.industry}
-        onChange={(e) => handleFieldChange('industry', e.target.value)}
-      >
-        <option value="recruiting">Recruiting & Staffing</option>
-        <option value="beauty">Beauty & Wellness (Salons, Barbers)</option>
-        <option value="medical">Medical Practices & Clinics</option>
-      </select>
-    </div>
-
-    {/* Physical Address Block */}
-    <div className="space-y-3 pt-2 border-t border-white/5">
-      <h3 className="text-sm font-bold text-orange-500 uppercase tracking-wider">Physical Location (For Google Maps SEO)</h3>
-      
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2 space-y-1.5">
-          <label className="text-xs text-zinc-400">Street Address</label>
-          <input
-            type="text"
-            placeholder="e.g. 123 N Mesa St"
-            className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors text-sm"
-            value={formData.streetAddress}
-            onChange={(e) => handleFieldChange('streetAddress', e.target.value)}
-          />
-        </div>
-        <div className="col-span-1 space-y-1.5">
-          <label className="text-xs text-zinc-400">Suite / Apt</label>
-          <input
-            type="text"
-            placeholder="e.g. Suite 400"
-            className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors text-sm"
-            value={formData.suite}
-            onChange={(e) => handleFieldChange('suite', e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-3">
-        <div className="col-span-2 space-y-1.5">
-          <label className="text-xs text-zinc-400">City</label>
-          <input
-            type="text"
-            className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
-            value={formData.city}
-            onChange={(e) => handleFieldChange('city', e.target.value)}
-          />
-        </div>
-        <div className="col-span-1 space-y-1.5">
-          <label className="text-xs text-zinc-400">State</label>
-          <input
-            type="text"
-            maxLength={2}
-            className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white text-center focus:outline-none focus:border-orange-500 transition-colors text-sm"
-            value={formData.state}
-            onChange={(e) => handleFieldChange('state', e.target.value)}
-          />
-        </div>
-        <div className="col-span-1 space-y-1.5">
-          <label className="text-xs text-zinc-400">ZIP Code</label>
-          <input
-            type="text"
-            placeholder="79901"
-            className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white placeholder:text-zinc-700 focus:outline-none focus:border-orange-500 transition-colors text-sm"
-            value={formData.zipCode}
-            onChange={(e) => handleFieldChange('zipCode', e.target.value)}
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-          {/* STEP 2: Branding / Color Picker Render Here */}
-          {step === 2 && (
+          {/* STEP 1: Core Info */}
+          {step === 1 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* Color picker and file upload drops here */}
+              <p className="text-sm text-zinc-400">
+                Let's set up the base profile for your new website hosting layer and local SEO mapping.
+              </p>
+              
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Business Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sun City Staffing"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                  value={formData.businessName}
+                  onChange={(e) => handleFieldChange('businessName', e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Industry / Template Type</label>
+                <select
+                  className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                  value={formData.industry}
+                  onChange={(e) => handleFieldChange('industry', e.target.value)}
+                >
+                  <option value="recruiting">Recruiting & Staffing</option>
+                  <option value="services">Home Services & Trades</option>
+                  <option value="medical">Medical Practices & Clinics</option>
+                </select>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-white/5">
+                <h3 className="text-sm font-bold text-orange-500 uppercase tracking-wider">Physical Location</h3>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs text-zinc-400">Street Address</label>
+                    <input
+                      type="text"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.streetAddress}
+                      onChange={(e) => handleFieldChange('streetAddress', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-1 space-y-1.5">
+                    <label className="text-xs text-zinc-400">Suite</label>
+                    <input
+                      type="text"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.suite}
+                      onChange={(e) => handleFieldChange('suite', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-3">
+                  <div className="col-span-2 space-y-1.5">
+                    <label className="text-xs text-zinc-400">City</label>
+                    <input
+                      type="text"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.city}
+                      onChange={(e) => handleFieldChange('city', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-1 space-y-1.5">
+                    <label className="text-xs text-zinc-400">State</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white text-center focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.state}
+                      onChange={(e) => handleFieldChange('state', e.target.value)}
+                    />
+                  </div>
+                  <div className="col-span-1 space-y-1.5">
+                    <label className="text-xs text-zinc-400">ZIP Code</label>
+                    <input
+                      type="text"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.zipCode}
+                      onChange={(e) => handleFieldChange('zipCode', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* STEP 3: AI Screening Training Box */}
+          {/* STEP 2: Features & Branding */}
+          {step === 2 && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              
+              {/* Feature Toggle */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium text-zinc-300">Choose Your Lead Capture Features (Select Both if desired)</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div 
+                    onClick={() => handleFieldChange('isBotActive', !formData.isBotActive)}
+                    className={`cursor-pointer border rounded-xl p-4 flex flex-col gap-2 transition-all ${formData.isBotActive ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-950 border-white/10 hover:border-white/30'}`}
+                  >
+                    <Bot className={`w-6 h-6 ${formData.isBotActive ? 'text-orange-500' : 'text-zinc-500'}`} />
+                    <h4 className="font-bold text-white text-sm">AI Chat Assistant</h4>
+                    <p className="text-xs text-zinc-400">The bot talks to visitors and captures leads automatically.</p>
+                  </div>
+                  
+                  <div 
+                    onClick={() => handleFieldChange('enableCalendar', !formData.enableCalendar)}
+                    className={`cursor-pointer border rounded-xl p-4 flex flex-col gap-2 transition-all ${formData.enableCalendar ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-950 border-white/10 hover:border-white/30'}`}
+                  >
+                    <Calendar className={`w-6 h-6 ${formData.enableCalendar ? 'text-orange-500' : 'text-zinc-500'}`} />
+                    <h4 className="font-bold text-white text-sm">Booking Calendar</h4>
+                    <p className="text-xs text-zinc-400">Embed your existing calendar directly onto the page.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Calendar Link Input (Only shows if Calendar is enabled) */}
+              {formData.enableCalendar && (
+                <div className="space-y-1.5 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
+                  <label className="text-sm font-medium text-zinc-300">Public Calendar Link</label>
+                  <p className="text-xs text-zinc-400 mb-2">Paste your Calendly, Square, or Google Calendar booking URL.</p>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                    <input
+                      type="url"
+                      placeholder="https://calendly.com/your-business"
+                      className="w-full pl-10 bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                      value={formData.calendarUrl}
+                      onChange={(e) => handleFieldChange('calendarUrl', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Calendar Link Input (Only shows if they toggle it or they want to provide it anyway) */}
+              <div className="space-y-1.5 pt-2 border-t border-white/5">
+                <label className="text-sm font-medium text-zinc-300">Public Calendar Link</label>
+                <p className="text-xs text-zinc-400 mb-2">Paste your Calendly, Square, or Google Calendar booking URL.</p>
+                <div className="relative">
+                  <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                  <input
+                    type="url"
+                    placeholder="https://calendly.com/your-business"
+                    className="w-full pl-10 bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                    value={formData.calendarUrl}
+                    onChange={(e) => handleFieldChange('calendarUrl', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Brand Color Picker */}
+              <div className="space-y-1.5 pt-4 border-t border-white/5">
+                <label className="text-sm font-medium text-zinc-300">Brand Color (Hex Code)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="color"
+                    className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer"
+                    value={formData.primaryColor}
+                    onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="flex-1 bg-zinc-950 border border-white/10 rounded-lg p-2 text-white uppercase focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                    value={formData.primaryColor}
+                    onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                  />
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* STEP 3: AI Training */}
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in duration-200">
-              {/* High-impact questions to construct the prompt custom variables */}
+               <p className="text-sm text-zinc-400 mb-4">
+                Almost done! Let's give your AI some basic knowledge. You can always update this in your dashboard later.
+              </p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Company Bio</label>
+                <textarea
+                  placeholder="Short description of what you do..."
+                  className="flex min-h-[80px] w-full rounded-lg border border-white/10 bg-zinc-950 p-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                  value={formData.companyBio}
+                  onChange={(e) => handleFieldChange('companyBio', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-zinc-300">Core Rules & Pricing</label>
+                <textarea
+                  placeholder="e.g. Roof inspections are free. We don't do repairs under $500."
+                  className="flex min-h-[80px] w-full rounded-lg border border-white/10 bg-zinc-950 p-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500"
+                  value={formData.screeningRule}
+                  onChange={(e) => handleFieldChange('screeningRule', e.target.value)}
+                />
+              </div>
             </div>
           )}
 
-          {/* Bottom Navigation Control Bar */}
+          {/* Bottom Navigation */}
           <div className="flex justify-between items-center pt-4 border-t border-white/5 mt-6">
             <Button
               variant="ghost"
@@ -177,7 +315,7 @@ export default function OnboardingWizard() {
             >
               <ArrowLeft className="w-4 h-4 mr-2" /> Back
             </Button>
-
+            
             {step < 3 ? (
               <Button onClick={nextStep} className="bg-orange-500 hover:bg-orange-600 font-bold">
                 Continue <ArrowRight className="w-4 h-4 ml-2" />

@@ -2,47 +2,49 @@
 
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Send, Info, MapPin, CheckCircle2, Loader2 } from 'lucide-react';
+import { Send, Info, MapPin, CheckCircle2, Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 // 1. The Database of Fake Clients for the Showroom
 const templateProfiles = {
   logistics: {
     business_name: "Sun City Staffing & Logistics",
-    primary_color: "#ea580c", // Orange
+    primary_color: "#ea580c",
     logo_url: "/assets/SCC_logo.png",
-    industry: "recruiting",
     company_bio: "El Paso's premier logistics recruiting agency. We match experienced CDL-A drivers with the highest-paying local and OTR routes in the Southwest.",
     address: "123 N Mesa St, Suite 400, El Paso, TX 79901",
     benefits: ["Starting at 70 CPM", "Guaranteed Home Weekends", "Sign-on Bonuses"],
+    is_bot_active: true, // Bot is ON
+    calendar_url: null,
     ai_greeting: "Hi! I'm the digital recruiting assistant for Sun City Staffing. Are you looking for local El Paso routes or OTR?",
     ai_response: "Got it! Do you currently hold a valid Class A CDL and have at least 1 year of experience?"
   },
   medical: {
     business_name: "Sun City Aesthetics & Wellness",
-    primary_color: "#3b82f6", // Blue
+    primary_color: "#3b82f6",
     logo_url: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=256&h=256&fit=crop&q=80", 
-    industry: "medical",
     company_bio: "The premier destination for medical aesthetics, wellness, and anti-aging treatments. We specialize in enhancing your natural beauty.",
     address: "7470 Cimarron Market Ave, El Paso, TX 79911",
     benefits: ["Board Certified Injectors", "Free Consultations", "0% Financing Available"],
+    is_bot_active: true, // Bot is ON
+    calendar_url: null,
     ai_greeting: "Hello! Welcome to Sun City Aesthetics. Would you like to view our treatment menu or book a free consultation?",
     ai_response: "Wonderful! We have openings this week. Can I get your best phone number so our front desk can text you the available times?"
   },
   services: {
     business_name: "Sun City Roofing & Exteriors",
-    primary_color: "#10b981", // Emerald
+    primary_color: "#10b981",
     logo_url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=256&h=256&fit=crop&q=80",
-    industry: "services",
     company_bio: "Trusted local roofing experts. We handle storm damage, full replacements, and insurance claims from start to finish.",
     address: "11450 Rojas Dr, El Paso, TX 79936",
     benefits: ["Free Drone Inspections", "Fully Licensed & Bonded", "Insurance Claim Specialists"],
-    ai_greeting: "Hey there! Sun City Roofing virtual assistant here. Do you need a free roof inspection or emergency leak repair?",
-    ai_response: "We can definitely help with that. What is the address of the property so I can check our schedule for today?"
+    is_bot_active: false, // Bot is OFF - triggers the Calendar layout
+    calendar_url: "https://calendly.com/suncityconnect", // Ensure this points to a real public booking link for testing
+    ai_greeting: "",
+    ai_response: ""
   }
 };
 
-// 2. The Inner Component that reads the URL
 function TemplateContent() {
   const searchParams = useSearchParams();
   const templateId = searchParams.get('id') || 'logistics';
@@ -104,7 +106,7 @@ function TemplateContent() {
   return (
     <main className="flex h-dvh w-full overflow-hidden bg-zinc-950 font-sans selection:bg-white/20">
       
-      {/* Desktop Billboard */}
+      {/* LEFT SIDE: Desktop Billboard */}
       <section className="hidden lg:flex lg:w-1/2 flex-col relative border-r border-white/10 bg-zinc-900">
         <div 
           className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" 
@@ -120,19 +122,25 @@ function TemplateContent() {
         </div>
       </section>
 
-      {/* AI Chat Interface */}
+      {/* RIGHT SIDE / FULL MOBILE SCREEN: The Dynamic Panel */}
       <section className="flex flex-col w-full lg:w-1/2 h-full relative bg-zinc-950">
         
-        {/* Mobile Header */}
+        {/* Universal Mobile Header */}
         <header className="lg:hidden flex items-center justify-between p-4 bg-zinc-950/80 backdrop-blur-md border-b border-white/10 shrink-0 z-20">
           <div className="flex items-center gap-3">
             <img src={client.logo_url} alt="Logo" className="h-8 w-8 object-cover rounded-md" />
             <div>
               <h2 className="text-white font-bold text-sm leading-none">{client.business_name}</h2>
-              <p className="text-xs mt-1 flex items-center gap-1.5 opacity-80" style={{ color: client.primary_color }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: client.primary_color }}></span>
-                Live Agent
-              </p>
+              {client.is_bot_active ? (
+                <p className="text-xs mt-1 flex items-center gap-1.5 opacity-80" style={{ color: client.primary_color }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: client.primary_color }}></span>
+                  Live Agent
+                </p>
+              ) : (
+                <p className="text-xs mt-1 flex items-center gap-1.5 text-zinc-400">
+                  <CalendarIcon className="w-3 h-3" /> Booking Portal
+                </p>
+              )}
             </div>
           </div>
 
@@ -152,66 +160,93 @@ function TemplateContent() {
           </Sheet>
         </header>
 
-        {/* Desktop Chat Header */}
-        <header className="hidden lg:flex items-center p-6 bg-zinc-950 border-b border-white/10 shrink-0">
-          <div>
-            <h2 className="text-white font-bold text-lg leading-none">Application Assistant</h2>
-            <p className="text-sm mt-1 flex items-center gap-1.5" style={{ color: client.primary_color }}>
-              <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: client.primary_color }}></span>
-              Online & Ready
-            </p>
-          </div>
-        </header>
-
-        {/* Chat Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
-          {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              <div 
-                className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[75%] shadow-md text-[15px] leading-relaxed ${
-                  msg.role === 'user' 
-                    ? 'rounded-tr-sm text-white' 
-                    : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
-                }`}
-                style={msg.role === 'user' ? { backgroundColor: client.primary_color } : {}}
-              >
-                {msg.text}
+        {/* LOGIC SPLIT: Show Chat OR Calendar */}
+        {client.is_bot_active ? (
+          <>
+            {/* Desktop Chat Header */}
+            <header className="hidden lg:flex items-center p-6 bg-zinc-950 border-b border-white/10 shrink-0">
+              <div>
+                <h2 className="text-white font-bold text-lg leading-none">Application Assistant</h2>
+                <p className="text-sm mt-1 flex items-center gap-1.5" style={{ color: client.primary_color }}>
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: client.primary_color }}></span>
+                  Online & Ready
+                </p>
               </div>
+            </header>
+
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div 
+                    className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[75%] shadow-md text-[15px] leading-relaxed ${
+                      msg.role === 'user' ? 'rounded-tr-sm text-white' : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
+                    }`}
+                    style={msg.role === 'user' ? { backgroundColor: client.primary_color } : {}}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Input Field */}
-        <div className="p-4 bg-zinc-950 border-t border-white/10 shrink-0 pb-safe">
-          <form onSubmit={handleSendMessage} className="relative flex items-center max-w-2xl mx-auto">
-            <input 
-              type="text" 
-              placeholder="Type your answer..." 
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="w-full bg-zinc-900 border border-white/10 rounded-full py-3.5 pl-5 pr-14 text-white text-[15px] focus:ring-1 outline-none transition-shadow"
-              style={{ '--tw-ring-color': client.primary_color }}
-            />
-            <button 
-              type="submit"
-              disabled={!chatInput.trim()}
-              className="absolute right-1.5 p-2.5 rounded-full text-white transition-transform active:scale-95 disabled:opacity-50"
-              style={{ backgroundColor: client.primary_color }}
-            >
-              <Send className="w-4 h-4 ml-0.5" />
-            </button>
-          </form>
-          <p className="text-center text-[10px] text-zinc-600 mt-3 font-medium uppercase tracking-widest">
-            Powered by Sun City Connect
-          </p>
-        </div>
+            {/* Chat Input */}
+            <div className="p-4 bg-zinc-950 border-t border-white/10 shrink-0 pb-safe">
+              <form onSubmit={handleSendMessage} className="relative flex items-center max-w-2xl mx-auto">
+                <input 
+                  type="text" 
+                  placeholder="Type your answer..." 
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="w-full bg-zinc-900 border border-white/10 rounded-full py-3.5 pl-5 pr-14 text-white text-[15px] focus:ring-1 outline-none transition-shadow"
+                  style={{ '--tw-ring-color': client.primary_color }}
+                />
+                <button 
+                  type="submit"
+                  disabled={!chatInput.trim()}
+                  className="absolute right-1.5 p-2.5 rounded-full text-white transition-transform active:scale-95 disabled:opacity-50"
+                  style={{ backgroundColor: client.primary_color }}
+                >
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Desktop Calendar Header */}
+            <header className="hidden lg:flex items-center p-6 bg-zinc-950 border-b border-white/10 shrink-0">
+              <div>
+                <h2 className="text-white font-bold text-lg leading-none">Schedule an Appointment</h2>
+                <p className="text-sm mt-1 flex items-center gap-1.5 text-zinc-400">
+                  <CalendarIcon className="w-3 h-3" /> Select a time below
+                </p>
+              </div>
+            </header>
 
+            {/* IFRAME EMBED */}
+            <div className="flex-1 w-full bg-white relative">
+               {client.calendar_url ? (
+                 <iframe 
+                   src={client.calendar_url} 
+                   width="100%" 
+                   height="100%" 
+                   frameBorder="0" 
+                   className="absolute inset-0"
+                 />
+               ) : (
+                 <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-zinc-400 p-8 text-center">
+                    No booking calendar connected yet.
+                 </div>
+               )}
+            </div>
+          </>
+        )}
       </section>
     </main>
   );
 }
 
-// 3. Wrap it in a Suspense boundary (Required by Next.js when using useSearchParams)
 export default function MasterTemplate() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-zinc-950 flex items-center justify-center"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>}>
