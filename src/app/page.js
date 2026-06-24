@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { Sparkles, MessageSquare, BarChart3, Megaphone, Lock, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Sparkles, MessageSquare, BarChart3, Globe, ShieldCheck, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function SplashPage() {
   return (
@@ -29,7 +29,6 @@ export default function SplashPage() {
 
         <div className="max-w-4xl mx-auto relative z-10 flex flex-col items-center">
           
-          {/* Bigger Logo */}
           <img 
             src="/assets/SCC_logo.png" 
             alt="Sun City Connect" 
@@ -38,25 +37,24 @@ export default function SplashPage() {
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-orange-400 text-sm font-semibold mb-6 backdrop-blur-md">
             <Sparkles className="w-4 h-4" /> 
-            Premium Membership Now Available
+            The Turnkey Solution for Local Businesses
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-black text-white tracking-tight mb-6 leading-tight">
-            Your 24/7 AI Sales Team <br className="hidden md:block" />
+            Claim Your Digital <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">
-              and Marketing Agency.
+              Real Estate.
             </span>
           </h1>
 
           <p className="text-lg md:text-xl text-zinc-400 mb-10 max-w-2xl leading-relaxed">
-            Stop letting valuable leads slip through your Instagram and Facebook DMs. 
-            Sun City Connect is an all-in-one command center designed to turn casual conversations into booked appointments, while putting your social media marketing on autopilot.
+            Stop relying on broken web pages and missed social media DMs. We build your custom, mobile-first digital storefront and install a 24/7 AI sales team to capture, qualify, and book every single lead automatically.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-            <Link href="/login" className="w-full sm:w-auto">
+            <Link href="/templates" className="w-full sm:w-auto">
               <Button className="w-full sm:w-auto h-14 px-8 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-xl shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all transform hover:-translate-y-1">
-                Upgrade Your Agency <ArrowRight className="ml-2 w-5 h-5" />
+                View Our Packages <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </Link>
           </div>
@@ -64,92 +62,125 @@ export default function SplashPage() {
         </div>
       </main>
 
-      {/* --- FEATURES GRID --- */}
-      <section className="w-full bg-black/40 border-t border-white/5 py-24 px-4 md:px-8 relative z-10">
+      {/* --- CORE FEATURES --- */}
+      <section className="w-full bg-black/40 border-y border-white/5 py-24 px-4 md:px-8 relative z-10">
         <div className="max-w-7xl mx-auto">
-          
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Built for Local Business Growth.</h2>
-            <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
-              Unlock a suite of enterprise-grade AI tools tailored specifically to help your business dominate the local market.
-            </p>
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Everything You Need to Dominate Locally.</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            
-            {/* Feature 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
             <Card className="bg-zinc-900/40 backdrop-blur-xl border-white/10 hover:border-orange-500/30 transition-colors">
               <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-6">
-                  <MessageSquare className="w-7 h-7 text-blue-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">24/7 AI Sales Assistant</h3>
+                <Globe className="w-10 h-10 text-orange-400 mb-6" />
+                <h3 className="text-2xl font-bold text-white mb-3">Custom Storefronts</h3>
                 <p className="text-zinc-400 leading-relaxed">
-                  Never miss another midnight inquiry. Our smart AI instantly replies to incoming DMs on Instagram and Facebook, answering questions, handling objections, and driving customers to book a demo—all while matching your brand's unique voice. Take over manually at any time with our single-click Kill Switch.
+                  Fast, mobile-optimized landing pages branded exactly for your business. We secure your domain, handle the hosting, and engineer the layout to convert local traffic into paying clients.
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 2 */}
             <Card className="bg-zinc-900/40 backdrop-blur-xl border-white/10 hover:border-orange-500/30 transition-colors">
               <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-6">
-                  <BarChart3 className="w-7 h-7 text-green-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Smart Pipeline & CRM</h3>
+                <MessageSquare className="w-10 h-10 text-blue-400 mb-6" />
+                <h3 className="text-2xl font-bold text-white mb-3">24/7 AI Receptionist</h3>
                 <p className="text-zinc-400 leading-relaxed">
-                  Ditch the messy spreadsheets. Our AI automatically extracts crucial contact data—phone numbers, emails, and purchase intent—straight from your chat logs. We instantly categorize your leads into Hot, Warm, and Cold, organizing them into a sleek, real-time dashboard.
+                  Embedded directly into your new website and your Meta DMs. Our AI instantly answers questions, pre-screens candidates, and books appointments while you are on the job site or asleep.
                 </p>
               </CardContent>
             </Card>
 
-            {/* Feature 3 */}
             <Card className="bg-zinc-900/40 backdrop-blur-xl border-white/10 hover:border-orange-500/30 transition-colors">
               <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mb-6">
-                  <Megaphone className="w-7 h-7 text-orange-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">AI Social Manager</h3>
+                <BarChart3 className="w-10 h-10 text-green-400 mb-6" />
+                <h3 className="text-2xl font-bold text-white mb-3">Unified CRM Dashboard</h3>
                 <p className="text-zinc-400 leading-relaxed">
-                  Struggling to figure out what to post? Let your customers tell you. Our intelligent marketing engine analyzes your recent inbox trends to discover exactly what your audience wants, then generates a high-converting caption and a stunning, ready-to-post branded image using enterprise-grade AI.
+                  One clean command center. We automatically extract phone numbers, emails, and client intent from every conversation, logging them into a single secure pipeline for your team to review.
                 </p>
               </CardContent>
             </Card>
-
-            {/* Feature 4 */}
-            <Card className="bg-zinc-900/40 backdrop-blur-xl border-white/10 hover:border-orange-500/30 transition-colors">
-              <CardContent className="p-8">
-                <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6">
-                  <Lock className="w-7 h-7 text-purple-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">The Campaign Vault</h3>
-                <p className="text-zinc-400 leading-relaxed">
-                  Save your favorite AI-generated ads to your private Vault. Download your branded assets in high resolution, copy your tailored captions, and deploy your campaigns to Meta with zero friction.
-                </p>
-              </CardContent>
-            </Card>
-
           </div>
         </div>
       </section>
 
-      {/* --- CLOSING CTA --- */}
-      <section className="w-full py-24 px-4 md:px-8 relative z-10 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl md:text-5xl font-black text-white mb-6">You run the business. <br className="hidden md:block"/> Let us handle the pipeline.</h2>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
-             <Link href="/login">
-              <Button className="h-14 px-10 bg-orange-500 hover:bg-orange-600 text-white font-bold text-lg rounded-xl shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all transform hover:-translate-y-1">
-                Get Started Today
-              </Button>
-            </Link>
+      {/* --- PRICING MENU --- */}
+      <section className="w-full py-24 px-4 md:px-8 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Transparent, A La Carte Pricing.</h2>
+            <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+              No contracts. No hidden fees. Choose the exact infrastructure your business needs to grow.
+            </p>
           </div>
 
-          <div className="flex flex-wrap justify-center gap-6 mt-10 text-sm text-zinc-500 font-medium">
-            <span className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-orange-500" /> Meta Integration</span>
-            <span className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-orange-500" /> Real-time Analytics</span>
-            <span className="flex items-center"><CheckCircle2 className="w-4 h-4 mr-2 text-orange-500" /> Secure Cloud Hosting</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            
+            {/* TIER 1 */}
+            <Card className="bg-zinc-900/40 border-white/10 flex flex-col">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-xl text-zinc-300 uppercase tracking-widest">Digital Storefront</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 pt-4 flex-1 flex flex-col">
+                <div className="text-center mb-6">
+                  <span className="text-4xl font-black text-white">$49</span><span className="text-zinc-400">/mo</span>
+                  <p className="text-sm text-zinc-500 mt-2">+$199 One-Time Setup</p>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Custom Branded Website</li>
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Domain & Secure Hosting</li>
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Mobile & SEO Optimized</li>
+                </ul>
+                <Link href="/login" className="w-full">
+                  <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">Select Plan</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* TIER 3 (Center Highlighted) */}
+            <Card className="bg-zinc-900 border-orange-500 shadow-[0_0_30px_rgba(249,115,22,0.15)] flex flex-col relative transform md:-translate-y-4">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-orange-500 text-white px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
+                Most Popular
+              </div>
+              <CardHeader className="text-center pb-2 pt-8">
+                <CardTitle className="text-xl text-orange-400 uppercase tracking-widest">The Turnkey Bundle</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 pt-4 flex-1 flex flex-col">
+                <div className="text-center mb-6">
+                  <span className="text-5xl font-black text-white">$109</span><span className="text-zinc-400">/mo</span>
+                  <p className="text-sm text-orange-400/80 mt-2">+$249 One-Time Setup</p>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-start text-white"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Everything in Storefront</li>
+                  <li className="flex items-start text-white"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Everything in Inbox AI</li>
+                  <li className="flex items-start text-white font-bold"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Website Bot Integration</li>
+                </ul>
+                <Link href="/login" className="w-full">
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold">Select Bundle</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            {/* TIER 2 */}
+            <Card className="bg-zinc-900/40 border-white/10 flex flex-col">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-xl text-zinc-300 uppercase tracking-widest">Inbox AI Bot</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8 pt-4 flex-1 flex flex-col">
+                <div className="text-center mb-6">
+                  <span className="text-4xl font-black text-white">$79</span><span className="text-zinc-400">/mo</span>
+                  <p className="text-sm text-zinc-500 mt-2">+$99 One-Time Setup</p>
+                </div>
+                <ul className="space-y-4 mb-8 flex-1">
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Instagram & Facebook Integration</li>
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Automated Lead Pre-Screening</li>
+                  <li className="flex items-start text-zinc-300"><CheckCircle2 className="w-5 h-5 text-orange-500 mr-3 shrink-0" /> Real-Time CRM Dashboard</li>
+                </ul>
+                <Link href="/login" className="w-full">
+                  <Button variant="outline" className="w-full border-white/20 text-white hover:bg-white/10">Select Plan</Button>
+                </Link>
+              </CardContent>
+            </Card>
+
           </div>
         </div>
       </section>

@@ -69,21 +69,34 @@ export default function PremiumLeadDashboard() {
       setUserId(session.user.id);
 
       // --- Sync Client Data with Database ---
+      // FIX 1: We added business_name and ig_account_id to the select query
       const { data: clientData } = await supabase
         .from('clients')
-        .select('is_bot_active, is_subscribed')
+        .select('is_bot_active, is_subscribed, business_name, ig_account_id')
         .eq('user_id', session.user.id)
         .single();
         
       if (clientData) {
         if (clientData.is_bot_active !== null) setIsBotActive(clientData.is_bot_active);
         if (clientData.is_subscribed !== null) setIsSubscribed(clientData.is_subscribed);
+
+        // FIX 2: THE ONBOARDING BOUNCER
+        // If they have no business name, they haven't done the setup wizard.
+        if (!clientData.business_name) {
+          router.push('/dashboard/onboarding');
+          return;
+        }
+      } else {
+        // Fallback: If no client row exists at all, force onboarding
+        router.push('/dashboard/onboarding');
+        return;
       }
 
-      // 2. FETCH LEADS
+      // 2. FETCH LEADS (DATA BLEED FIXED)
       const { data, error } = await supabase
         .from('b2b_inbox')
         .select('ig_username, extracted_data, created_at, incoming_message, ai_reply, platform, lead_source')
+        .eq('business_ig_id', clientData.ig_account_id) // FIX 3: THE MAGIC FILTER
         .not('extracted_data', 'is', null)
         .order('created_at', { ascending: false });
 

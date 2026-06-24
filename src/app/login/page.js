@@ -18,24 +18,44 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isSignUp, setIsSignUp] = useState(false); // NEW: Tracks if they are creating an account
   const router = useRouter();
 
-  const handleEmailLogin = async (e) => {
+  const handleEmailAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    if (isSignUp) {
+      // Create a brand new account
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
-      setLoading(false);
+      if (error) {
+        setError(error.message);
+      } else {
+        // Automatically create a blank row in the 'clients' table for them
+        if (data.user) {
+          await supabase.from('clients').insert([{ user_id: data.user.id }]);
+        }
+        router.push('/dashboard');
+      }
     } else {
-      router.push('/dashboard');
+      // Log into an existing account
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(error.message);
+      } else {
+        router.push('/dashboard');
+      }
     }
+    setLoading(false);
   };
 
   const handleFacebookLogin = async () => {
@@ -97,14 +117,14 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <form onSubmit={handleEmailLogin} className="space-y-6">
+            <form onSubmit={handleEmailAuth} className="space-y-6">
               <div className="space-y-2">
                 <Label className="text-zinc-300">Email Address</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
                   <Input 
                     type="email" 
-                    placeholder="Login" 
+                    placeholder="name@business.com" 
                     className="pl-10 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -116,11 +136,13 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-zinc-300">Password</Label>
-                  <a href="#" className="text-xs text-orange-500 hover:text-orange-400 font-medium">Forgot password?</a>
+                  {!isSignUp && (
+                    <a href="#" className="text-xs text-orange-500 hover:text-orange-400 font-medium">Forgot password?</a>
+                  )}
                 </div>
                 <Input 
                   type="password" 
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -139,8 +161,21 @@ export default function LoginPage() {
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-11 transition-all"
                 disabled={loading}
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>Sign In <ArrowRight className="w-4 h-4 ml-2" /></>}
+                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
+                  {isSignUp ? "Create Account" : "Sign In"} <ArrowRight className="w-4 h-4 ml-2" />
+                </>}
               </Button>
+
+              {/* The Toggle Link */}
+              <div className="text-center mt-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                  {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+                </button>
+              </div>
             </form>
           </CardContent>
         </Card>
