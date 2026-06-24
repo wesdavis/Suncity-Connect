@@ -15,7 +15,7 @@ export default function TemplateGallery() {
       description: "Engineered specifically to convert drivers. Aggressive mobile chat takeover to pre-screen CDL applicants instantly.",
       features: ["Driver Pre-screening Bot", "Route Benefits Showcase", "SMS-Style Mobile Layout"],
       // For now, they all point to your sandbox preview
-      demoLink: "/template-preview", 
+      demoLink: "/template-preview?id=logistics",
     },
     {
       id: "medical",
@@ -25,7 +25,7 @@ export default function TemplateGallery() {
       accent: "text-blue-500",
       description: "Clean, professional, and trustworthy. Features a patient-intake AI assistant to answer FAQs and book consultations.",
       features: ["Patient Intake AI", "Services Menu", "HIPAA-Compliant Tone"],
-      demoLink: "/template-preview",
+      demoLink: "/template-preview?id=medical",
     },
     {
       id: "services",
@@ -35,7 +35,7 @@ export default function TemplateGallery() {
       accent: "text-emerald-500",
       description: "Built for speed. Captures leads on the job site by instantly generating automated quotes and collecting contact info.",
       features: ["Instant Quote Bot", "Project Gallery Area", "Emergency Call Integration"],
-      demoLink: "/template-preview",
+      demoLink: "/template-preview?id=services",
     }
   ];
 
