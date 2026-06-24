@@ -1,16 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@supabase/supabase-js';
 import { Loader2, ArrowRight, ArrowLeft, CheckCircle2, Link as LinkIcon, Calendar, Bot } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from '@supabase/supabase-js';
-import { useRouter } from 'next/navigation';
 
 export default function OnboardingWizard() {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState(null);
   
   const [formData, setFormData] = useState({
     businessName: '',
@@ -21,12 +22,13 @@ export default function OnboardingWizard() {
     state: 'TX',    
     zipCode: '',
     primaryColor: '#ea580c', 
+    secondaryColor: '#ffffff', // NEW: Second Brand Color
     logoUrl: '',
     companyBio: '',
     screeningRule: '',
-    calendarUrl: '', // NEW: The booking link
-    isBotActive: true, // NEW: Toggle between Bot and Calendar layout
-    enableCalendar: false // NEW: Toggle for calendar integration
+    calendarUrl: '', 
+    isBotActive: true, 
+    enableCalendar: false 
   });
 
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 3));
@@ -38,26 +40,22 @@ export default function OnboardingWizard() {
 
   const submitOnboarding = async () => {
     setLoading(true);
+    setErrorMsg(null);
 
     try {
-      // 1. Initialize Supabase
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // 2. Verify the user is logged in
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        console.error("No active session found.");
-        setLoading(false);
-        return;
+        throw new Error("No active session found. Please log in again.");
       }
 
-      // 3. Compile the AI Rules
       const compiledPrompt = `COMPANY BIO: ${formData.companyBio}\n\nSTRICT RULES: ${formData.screeningRule}`;
 
-      // 4. Push the data to the client's row
+      // This will fail if the columns don't exist in Supabase!
       const { error } = await supabase
         .from('clients')
         .update({
@@ -68,19 +66,20 @@ export default function OnboardingWizard() {
           state: formData.state,
           zip_code: formData.zipCode,
           primary_color: formData.primaryColor,
+          secondary_color: formData.secondaryColor, // Saving the new color
           is_bot_active: formData.isBotActive,
-          calendar_url: formData.calendarUrl || null, // Saves as null if left blank
+          calendar_url: formData.enableCalendar ? formData.calendarUrl : null, 
           custom_prompt: compiledPrompt
         })
         .eq('user_id', session.user.id);
 
       if (error) throw error;
 
-      // 5. Success! Route them to their new dashboard
       router.push('/dashboard');
       
     } catch (error) {
       console.error("Failed to deploy storefront:", error.message);
+      setErrorMsg(error.message);
       setLoading(false);
     }
   };
@@ -119,6 +118,7 @@ export default function OnboardingWizard() {
                 <label className="text-sm font-medium text-zinc-300">Business Name</label>
                 <input
                   type="text"
+                  autoComplete="organization"
                   placeholder="e.g. Sun City Staffing"
                   className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
                   value={formData.businessName}
@@ -146,6 +146,7 @@ export default function OnboardingWizard() {
                     <label className="text-xs text-zinc-400">Street Address</label>
                     <input
                       type="text"
+                      autoComplete="street-address"
                       className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
                       value={formData.streetAddress}
                       onChange={(e) => handleFieldChange('streetAddress', e.target.value)}
@@ -155,6 +156,7 @@ export default function OnboardingWizard() {
                     <label className="text-xs text-zinc-400">Suite</label>
                     <input
                       type="text"
+                      autoComplete="address-line2"
                       className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
                       value={formData.suite}
                       onChange={(e) => handleFieldChange('suite', e.target.value)}
@@ -166,6 +168,7 @@ export default function OnboardingWizard() {
                     <label className="text-xs text-zinc-400">City</label>
                     <input
                       type="text"
+                      autoComplete="address-level2"
                       className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
                       value={formData.city}
                       onChange={(e) => handleFieldChange('city', e.target.value)}
@@ -176,6 +179,7 @@ export default function OnboardingWizard() {
                     <input
                       type="text"
                       maxLength={2}
+                      autoComplete="address-level1"
                       className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white text-center focus:outline-none focus:border-orange-500 transition-colors text-sm"
                       value={formData.state}
                       onChange={(e) => handleFieldChange('state', e.target.value)}
@@ -185,6 +189,7 @@ export default function OnboardingWizard() {
                     <label className="text-xs text-zinc-400">ZIP Code</label>
                     <input
                       type="text"
+                      autoComplete="postal-code"
                       className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
                       value={formData.zipCode}
                       onChange={(e) => handleFieldChange('zipCode', e.target.value)}
@@ -223,7 +228,7 @@ export default function OnboardingWizard() {
                 </div>
               </div>
 
-              {/* Calendar Link Input (Only shows if Calendar is enabled) */}
+              {/* Calendar Link Input (Strictly hidden unless toggled) */}
               {formData.enableCalendar && (
                 <div className="space-y-1.5 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
                   <label className="text-sm font-medium text-zinc-300">Public Calendar Link</label>
@@ -241,38 +246,42 @@ export default function OnboardingWizard() {
                 </div>
               )}
 
-              {/* Calendar Link Input (Only shows if they toggle it or they want to provide it anyway) */}
-              <div className="space-y-1.5 pt-2 border-t border-white/5">
-                <label className="text-sm font-medium text-zinc-300">Public Calendar Link</label>
-                <p className="text-xs text-zinc-400 mb-2">Paste your Calendly, Square, or Google Calendar booking URL.</p>
-                <div className="relative">
-                  <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
-                  <input
-                    type="url"
-                    placeholder="https://calendly.com/your-business"
-                    className="w-full pl-10 bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
-                    value={formData.calendarUrl}
-                    onChange={(e) => handleFieldChange('calendarUrl', e.target.value)}
-                  />
+              {/* Dual Brand Color Pickers */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-300">Primary Color</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer"
+                      value={formData.primaryColor}
+                      onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="flex-1 bg-zinc-950 border border-white/10 rounded-lg p-2 text-white uppercase focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.primaryColor}
+                      onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* Brand Color Picker */}
-              <div className="space-y-1.5 pt-4 border-t border-white/5">
-                <label className="text-sm font-medium text-zinc-300">Brand Color (Hex Code)</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="color"
-                    className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer"
-                    value={formData.primaryColor}
-                    onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                  />
-                  <input
-                    type="text"
-                    className="flex-1 bg-zinc-950 border border-white/10 rounded-lg p-2 text-white uppercase focus:outline-none focus:border-orange-500 transition-colors text-sm"
-                    value={formData.primaryColor}
-                    onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium text-zinc-300">Secondary Color</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer"
+                      value={formData.secondaryColor}
+                      onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      className="flex-1 bg-zinc-950 border border-white/10 rounded-lg p-2 text-white uppercase focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                      value={formData.secondaryColor}
+                      onChange={(e) => handleFieldChange('secondaryColor', e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -303,6 +312,12 @@ export default function OnboardingWizard() {
                   onChange={(e) => handleFieldChange('screeningRule', e.target.value)}
                 />
               </div>
+
+              {errorMsg && (
+                <div className="p-3 mt-4 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 text-center font-medium">
+                  {errorMsg}
+                </div>
+              )}
             </div>
           )}
 
