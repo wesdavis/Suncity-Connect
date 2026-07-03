@@ -55,10 +55,11 @@ export default function OnboardingWizard() {
 
       const compiledPrompt = `COMPANY BIO: ${formData.companyBio}\n\nSTRICT RULES: ${formData.screeningRule}`;
 
-      // This will fail if the columns don't exist in Supabase!
+      // 2. UPSERT: Updates the row if it exists, creates it if it doesn't
       const { error } = await supabase
         .from('clients')
-        .update({
+        .upsert({
+          user_id: session.user.id, // The unique identifier
           business_name: formData.businessName,
           industry: formData.industry,
           street_address: formData.streetAddress,
@@ -66,16 +67,17 @@ export default function OnboardingWizard() {
           state: formData.state,
           zip_code: formData.zipCode,
           primary_color: formData.primaryColor,
-          secondary_color: formData.secondaryColor, // Saving the new color
+          secondary_color: formData.secondaryColor,
+          custom_domain: formData.customDomain, // Added from our domain update!
           is_bot_active: formData.isBotActive,
           calendar_url: formData.enableCalendar ? formData.calendarUrl : null, 
           custom_prompt: compiledPrompt
-        })
-        .eq('user_id', session.user.id);
+        }, { onConflict: 'user_id' }); // Tells Supabase to merge based on their ID
 
       if (error) throw error;
 
-      router.push('/dashboard');
+      // 3. Force a complete browser hard-reload to break the Next.js cache
+      window.location.href = '/dashboard';
       
     } catch (error) {
       console.error("Failed to deploy storefront:", error.message);
