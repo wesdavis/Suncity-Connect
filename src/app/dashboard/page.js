@@ -138,7 +138,42 @@ export default function PremiumLeadDashboard() {
   });
 
   return (
-    <>
+    <>{/* THE PAYWALL BLUR GATE LAYER */}
+{!isSubscribed && (
+  <div className="absolute inset-0 z-50 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-500">
+    <Card className="max-w-md w-full bg-zinc-900 border-orange-500/40 shadow-[0_0_50px_rgba(249,115,22,0.2)] text-center p-8 text-white">
+      <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-500/20">
+        <Lock className="w-8 h-8 text-orange-500 animate-pulse" />
+      </div>
+      <h2 className="text-3xl font-black tracking-tight mb-2">Workspace Locked</h2>
+      <p className="text-zinc-400 text-sm leading-relaxed mb-8">
+        Your account is verified, but your digital real estate is inactive. Complete your plan registration to unlock your CRM, train your custom AI core, and launch your public storefront.
+      </p>
+      
+      <div className="space-y-4">
+        <a 
+          href={`https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="block w-full"
+        >
+          <Button className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-black text-base rounded-xl transition-all shadow-lg shadow-orange-500/20">
+            Activate Subscription Plan <ArrowRight className="w-5 h-5 ml-2" />
+          </Button>
+        </a>
+        
+        <Button 
+          variant="ghost" 
+          onClick={handleLogout} 
+          className="w-full text-zinc-500 hover:text-zinc-300 text-xs font-semibold"
+        >
+          Disconnect Account
+        </Button>
+      </div>
+    </Card>
+  </div>
+)}
+
       <div 
         className="dark min-h-screen p-4 md:p-8 pt-8 md:pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center"
         style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}

@@ -36,6 +36,26 @@ export default function TemplateGallery() {
       description: "Built for speed. Captures leads on the job site by instantly generating automated quotes and collecting contact info.",
       features: ["Instant Quote Bot", "Project Gallery Area", "Emergency Call Integration"],
       demoLink: "/template-preview?id=services",
+    },
+    {
+      id: "realestate",
+      name: "The Broker",
+      industry: "Real Estate & Investments",
+      color: "from-indigo-500 to-indigo-700",
+      accent: "text-indigo-400",
+      description: "Designed for high-value conversions. Captures buyer requirements, filters budget ranges, and qualifies seller timelines instantly.",
+      features: ["Property Matching Assistant", "Interactive Showing Calendars", "Exclusive MLS Data Integration UI"],
+      demoLink: "/template-preview?id=realestate",
+    },
+    {
+      id: "restaurant",
+      name: "The Bistro",
+      industry: "Hospitality & Dining",
+      color: "from-red-500 to-red-700",
+      accent: "text-red-400",
+      description: "Clean, visually striking layout built for immediate booking. Routes visitors straight to digital reservations, menus, and event catering requests.",
+      features: ["Digital Reservation Engine", "Catering Sales Pipeline Layout", "Instant Directions & Hours Routing"],
+      demoLink: "/template-preview?id=restaurant",
     }
   ];
 

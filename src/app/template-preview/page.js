@@ -42,6 +42,30 @@ const templateProfiles = {
     calendar_url: "https://calendly.com/suncityconnect", // Ensure this points to a real public booking link for testing
     ai_greeting: "",
     ai_response: ""
+  },
+  realestate: {
+    business_name: "Sun City Realty Group",
+    primary_color: "#6366f1",
+    logo_url: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=256&h=256&fit=crop&q=80",
+    company_bio: "Modern real estate brokerage specializing in residential property acquisitions, investment strategies, and competitive listings in the Southwest region.",
+    address: "221 N Kansas St, El Paso, TX 79901",
+    benefits: ["Zero-Down Consultation Options", "Virtual VR Video Showings", "Exclusive Off-Market Property Catalogs"],
+    is_bot_active: true,
+    calendar_url: null,
+    ai_greeting: "Hello! Welcome to Sun City Realty Group. Are you looking to list your current home, or search for active properties in El Paso?",
+    ai_response: "Excellent. I can catalog a collection of listings tailored directly to you. What target zip codes or neighborhoods are you looking at, and what is your ideal budget range?"
+  },
+  restaurant: {
+    business_name: "La Fiesta Border Grill",
+    primary_color: "#dc2626",
+    logo_url: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=256&h=256&fit=crop&q=80",
+    company_bio: "Authentic, high-energy border cooking, artisanal cocktail menus, and full-service event catering networks serving the local community.",
+    address: "123 Pioneer Plaza, El Paso, TX 79901",
+    benefits: ["Award-Winning Smoked Brisket Tacos", "Interactive Catering Packages", "Private Dining & Group Venue Reservations"],
+    is_bot_active: false, // Forces booking interface
+    calendar_url: "https://calendly.com/suncityconnect", // Simulated reservation desk
+    ai_greeting: "",
+    ai_response: ""
   }
 };
 
