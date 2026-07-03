@@ -136,6 +136,8 @@ export default function OnboardingWizard() {
                   <option value="recruiting">Recruiting & Staffing</option>
                   <option value="services">Home Services & Trades</option>
                   <option value="medical">Medical Practices & Clinics</option>
+                  <option value="hospitality">Hospitality & Dining</option>
+                  <option value="realestate">Real Estate & Investments</option>
                 </select>
               </div>
 
