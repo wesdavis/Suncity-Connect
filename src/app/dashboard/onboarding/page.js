@@ -55,26 +55,45 @@ export default function OnboardingWizard() {
 
       const compiledPrompt = `COMPANY BIO: ${formData.companyBio}\n\nSTRICT RULES: ${formData.screeningRule}`;
 
-      // 2. UPSERT: Updates the row if it exists, creates it if it doesn't
-      const { error } = await supabase
-        .from('clients')
-        .upsert({
-          user_id: session.user.id, // The unique identifier
-          business_name: formData.businessName,
-          industry: formData.industry,
-          street_address: formData.streetAddress,
-          city: formData.city,
-          state: formData.state,
-          zip_code: formData.zipCode,
-          primary_color: formData.primaryColor,
-          secondary_color: formData.secondaryColor,
-          custom_domain: formData.customDomain, // Added from our domain update!
-          is_bot_active: formData.isBotActive,
-          calendar_url: formData.enableCalendar ? formData.calendarUrl : null, 
-          custom_prompt: compiledPrompt
-        }, { onConflict: 'user_id' }); // Tells Supabase to merge based on their ID
+      const payload = {
+        business_name: formData.businessName,
+        industry: formData.industry,
+        street_address: formData.streetAddress,
+        city: formData.city,
+        state: formData.state,
+        zip_code: formData.zipCode,
+        primary_color: formData.primaryColor,
+        secondary_color: formData.secondaryColor,
+        custom_domain: formData.customDomain,
+        is_bot_active: formData.isBotActive,
+        calendar_url: formData.enableCalendar ? formData.calendarUrl : null, 
+        custom_prompt: compiledPrompt
+      };
 
-      if (error) throw error;
+      // 2. See if the row already exists
+      const { data: existingClient } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      let dbError;
+
+      // 3. Update if they exist, Insert if they are brand new
+      if (existingClient) {
+        const { error } = await supabase
+          .from('clients')
+          .update(payload)
+          .eq('user_id', session.user.id);
+        dbError = error;
+      } else {
+        const { error } = await supabase
+          .from('clients')
+          .insert([{ user_id: session.user.id, ...payload }]);
+        dbError = error;
+      }
+
+      if (dbError) throw dbError;
 
       // 3. Force a complete browser hard-reload to break the Next.js cache
       window.location.href = '/dashboard';
