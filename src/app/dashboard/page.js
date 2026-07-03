@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit } from 'lucide-react'; 
+import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Edit3 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +28,7 @@ export default function PremiumLeadDashboard() {
   const [userId, setUserId] = useState(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isBotActive, setIsBotActive] = useState(true);
+  const [clientDomain, setClientDomain] = useState('');
   const router = useRouter();
   
   const handleLogout = async () => {
@@ -79,6 +80,10 @@ export default function PremiumLeadDashboard() {
       if (clientData) {
         if (clientData.is_bot_active !== null) setIsBotActive(clientData.is_bot_active);
         if (clientData.is_subscribed !== null) setIsSubscribed(clientData.is_subscribed);
+
+        // Set the website URL slug
+        const domainSlug = clientData.custom_domain || clientData.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        setClientDomain(domainSlug);
 
         // FIX 2: THE ONBOARDING BOUNCER
         // If they have no business name, they haven't done the setup wizard.
@@ -296,6 +301,34 @@ export default function PremiumLeadDashboard() {
                   </div>
                 </SheetContent>
               </Sheet>
+            </div>
+          </div>
+          
+          {/* Storefront Control Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-zinc-900/50 border border-white/10 rounded-2xl p-5 mb-6 shadow-lg">
+            <div className="flex items-center gap-4 mb-4 sm:mb-0">
+              <div className="bg-green-500/10 p-3 rounded-full border border-green-500/20">
+                <Globe className="w-6 h-6 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-white font-black text-lg">Your Website is Live</h3>
+                <p className="text-zinc-400 text-sm">suncityconnect.com/sites/{clientDomain}</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <a href={`/sites/${clientDomain}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none">
+                <Button className="w-full bg-white text-black hover:bg-zinc-200 font-bold shadow-lg shadow-white/10">
+                  View Storefront <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </a>
+              <Button 
+                variant="outline" 
+                onClick={() => router.push('/dashboard/settings')} 
+                className="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10"
+              >
+                <Edit3 className="w-4 h-4 mr-2" /> Quick Edit
+              </Button>
             </div>
           </div>
           
