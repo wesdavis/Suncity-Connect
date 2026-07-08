@@ -11,7 +11,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-export default function MasterTemplate({ params }) {
+export default function MasterTemplate() {
   const params = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
