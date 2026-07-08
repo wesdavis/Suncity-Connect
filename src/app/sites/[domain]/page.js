@@ -44,20 +44,48 @@ export default function MasterTemplate({ params }) {
     fetchClientData();
   }, [params.domain]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
     
-    setMessages(prev => [...prev, { role: 'user', text: chatInput }]);
+    const userMessage = chatInput;
+    // 1. Add user message to screen
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setChatInput('');
 
-    // Placeholder for where your actual AI API call will go
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        role: 'ai', 
-        text: "I've received your message. Let me check on that for you." 
-      }]);
-    }, 1000);
+    // 2. Add temporary loading state
+    setMessages(prev => [...prev, { role: 'ai', text: "Typing...", isLoading: true }]);
+
+    try {
+      // 3. Send the message AND the client's ID to your AI logic engine
+      const response = await fetch('/api/web-chat/route', { // Ensure this matches your actual API route path
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: userMessage, 
+          clientId: client.id 
+        })
+      });
+      
+      const data = await response.json();
+      
+      // 4. Remove typing indicator and show the real AI response
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages.pop(); // removes the "Typing..." message
+        newMessages.push({ role: 'ai', text: data.reply || data.error });
+        return newMessages;
+      });
+
+    } catch (error) {
+      console.error("AI Chat Error:", error);
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages.pop();
+        newMessages.push({ role: 'ai', text: "System connection lost. Please try again." });
+        return newMessages;
+      });
+    }
   };
 
   if (loading) {
