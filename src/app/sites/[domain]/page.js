@@ -61,6 +61,8 @@ export default function MasterTemplate() {
     // 2. Add temporary loading state
     setMessages(prev => [...prev, { role: 'ai', text: "Typing...", isLoading: true }]);
 
+    console.log("SENDING TO API:", { message: userMessage, clientId: client?.id });
+
     try {
       // 3. Send the message AND the client's ID to your AI logic engine
       const response = await fetch('/api/web-chat', { // Ensure this matches your actual API route path
