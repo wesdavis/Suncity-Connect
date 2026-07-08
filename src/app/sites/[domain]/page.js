@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Send, Info, MapPin, CheckCircle2, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -11,6 +12,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default function MasterTemplate({ params }) {
+  const params = useParams();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [chatInput, setChatInput] = useState('');
@@ -19,7 +21,10 @@ export default function MasterTemplate({ params }) {
   useEffect(() => {
     async function fetchClientData() {
       // The middleware passed the custom domain via the URL params
-      const currentDomain = params.domain;
+      const currentDomain = params?.domain;
+
+      // If the hook hasn't caught the URL yet, pause and wait
+      if (!currentDomain) return;
 
       // Look up the client in your database based on their custom domain
       const { data, error } = await supabase
@@ -42,7 +47,7 @@ export default function MasterTemplate({ params }) {
     }
 
     fetchClientData();
-  }, [params.domain]);
+  }, [params?.domain]); // <-- Update dependency array
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
