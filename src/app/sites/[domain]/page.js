@@ -63,7 +63,7 @@ export default function MasterTemplate() {
 
     try {
       // 3. Send the message AND the client's ID to your AI logic engine
-      const response = await fetch('/api/web-chat/route', { // Ensure this matches your actual API route path
+      const response = await fetch('/api/web-chat', { // Ensure this matches your actual API route path
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
