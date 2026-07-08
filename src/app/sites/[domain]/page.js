@@ -17,6 +17,7 @@ export default function MasterTemplate() {
   const [loading, setLoading] = useState(true);
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState([]);
+  const [visitorId] = useState(() => Math.random().toString(36).substring(7));
 
   useEffect(() => {
     async function fetchClientData() {
@@ -64,13 +65,15 @@ export default function MasterTemplate() {
     console.log("SENDING TO API:", { message: userMessage, clientId: client?.id });
 
     try {
-      // 3. Send the message AND the client's ID to your AI logic engine
-      const response = await fetch('/api/web-chat', { // Ensure this matches your actual API route path
+      // 3. Send the exact payload the API demands
+      const response = await fetch('/api/web-chat', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          domain: params?.domain,
           message: userMessage, 
-          clientId: client.id 
+          history: messages,
+          visitorId: visitorId
         })
       });
       
