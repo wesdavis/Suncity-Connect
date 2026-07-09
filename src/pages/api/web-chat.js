@@ -17,7 +17,7 @@ module.exports = async (req, res) => {
     // 1. Resolve client profile from domain
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('custom_prompt, ig_account_id, business_name, is_bot_active')
+      .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id')
       .eq('custom_domain', domain)
       .single();
 
@@ -83,7 +83,8 @@ module.exports = async (req, res) => {
       incoming_message: message,
       ai_reply: aiReply,
       status: 'replied',
-      business_ig_id: client.ig_account_id, 
+      business_ig_id: client.ig_account_id,
+      user_id: client.user_id,
       platform: 'Website',
       lead_source: 'Storefront Live Chat',
       extracted_data: extractedData

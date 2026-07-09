@@ -97,11 +97,17 @@ export default function PremiumLeadDashboard() {
         return;
       }
 
-      // 2. FETCH LEADS (DATA BLEED FIXED)
+      // 2. FETCH LEADS (OMNI-CHANNEL FIX)
+      // Create an array of valid IDs for this user
+      const validIds = [session.user.id]; // Always include their base system ID
+      if (clientData.ig_account_id) {
+        validIds.push(clientData.ig_account_id); // Add Meta ID if it exists
+      }
+
       const { data, error } = await supabase
         .from('b2b_inbox')
         .select('ig_username, extracted_data, created_at, incoming_message, ai_reply, platform, lead_source')
-        .eq('business_ig_id', clientData.ig_account_id) // FIX 3: THE MAGIC FILTER
+        .in('business_ig_id', validIds) // FIX: Use .in() instead of .eq() to allow both IDs
         .not('extracted_data', 'is', null)
         .order('created_at', { ascending: false });
 
