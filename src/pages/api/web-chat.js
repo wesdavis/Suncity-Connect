@@ -55,12 +55,20 @@ module.exports = async (req, res) => {
     const aiReply = chatResult.response.text().trim();
 
     // 4. Silent parsing to extract CRM lead records
-    const analystModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // Enforce strict JSON output so the parser never crashes
+    const analystModel = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" } 
+    });
+
     const extractionPrompt = `
-      Analyze this message string from a website live-chat box: "${message}"
-      Extract parameters and return an unformatted, raw JSON structure matching these keys:
+      Analyze this entire conversation history between a customer and an AI assistant:
+      ${memoryString}
+      Customer: "${message}"
+
+      Extract parameters and return a valid JSON object matching these exact keys:
       {
-        "intent": "2-4 word summary of customer need",
+        "intent": "2-4 word summary of customer need based on the entire conversation",
         "phone": "Extracted phone sequence or 'Pending'",
         "email": "Extracted email address string or 'Pending'",
         "timeline": "Time context or 'Pending'",
@@ -71,10 +79,10 @@ module.exports = async (req, res) => {
     let extractedData = { intent: "Website Visitor", phone: "Pending", email: "Pending", timeline: "Pending", status: "Cold" };
     try {
       const analystResult = await analystModel.generateContent(extractionPrompt);
-      const jsonText = analystResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
-      extractedData = JSON.parse(jsonText);
+      // Because we forced application/json, we can parse it directly without string manipulation
+      extractedData = JSON.parse(analystResult.response.text());
     } catch (e) {
-      console.error("AI Parser exception, using structural fallbacks.");
+      console.error("AI Parser exception:", e);
     }
 
     // 5. Commit directly into omnichannel channel
