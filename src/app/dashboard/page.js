@@ -97,25 +97,27 @@ export default function PremiumLeadDashboard() {
         return;
       }
 
-      // 2. FETCH LEADS (OMNI-CHANNEL FIX)
-      // Create an array of valid IDs for this user
-      const validIds = [session.user.id]; // Always include their base system ID
-      if (clientData.ig_account_id) {
-        validIds.push(clientData.ig_account_id); // Add Meta ID if it exists
-      }
-
-      const { data, error } = await supabase
+      // 2. FETCH LEADS (THE CLEAN OMNI-CHANNEL ARCHITECTURE)
+      let query = supabase
         .from('b2b_inbox')
         .select('ig_username, extracted_data, created_at, incoming_message, ai_reply, platform, lead_source')
-        .in('business_ig_id', validIds) // FIX: Use .in() instead of .eq() to allow both IDs
         .not('extracted_data', 'is', null)
         .order('created_at', { ascending: false });
+
+      // Dynamically build the OR filter based on whether they have Meta connected
+      if (clientData.ig_account_id) {
+        query = query.or(`user_id.eq.${session.user.id},business_ig_id.eq.${clientData.ig_account_id}`);
+      } else {
+        query = query.eq('user_id', session.user.id);
+      }
+
+      const { data, error } = await query;
 
       if (!error && data) {
         setLeads(data);
       }
       setLoading(false);
-    }
+    } // <-- Ensuring that brace stays intact!
     
     checkAuthAndFetchLeads();
   }, [router]);
@@ -149,8 +151,10 @@ export default function PremiumLeadDashboard() {
   });
 
   return (
-    <>{/* THE PAYWALL BLUR GATE LAYER */}
-{!isSubscribed && (
+    <>
+    
+    
+{!loading && !isSubscribed && (
   <div className="absolute inset-0 z-50 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-500">
     <Card className="max-w-md w-full bg-zinc-900 border-orange-500/40 shadow-[0_0_50px_rgba(249,115,22,0.2)] text-center p-8 text-white">
       <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-500/20">
