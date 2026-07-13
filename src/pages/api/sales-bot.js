@@ -160,7 +160,7 @@ module.exports = async (req, res) => {
       "status": "Rate as 'Hot', 'Warm', or 'Cold' based on urgency/readiness to buy"
     }`;
 
-    let extractedData = {};
+    
     try {
       const analystResult = await analystModel.generateContent(extractionPrompt);
       // Strip any accidental markdown formatting the AI might add
