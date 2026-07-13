@@ -35,54 +35,67 @@ module.exports = async (req, res) => {
       memoryString = history.slice(-4).map(h => `${h.role === 'user' ? 'Customer' : 'Assistant'}: ${h.text}`).join('\n');
     }
 
-    // 3. Conversational reply from Gemini
-    const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const chatPrompt = `
-      You are the elite digital receptionist and client qualification agent for ${client.business_name}.
-      --- CLIENT PROFILE & INSTRUCTIONS ---
-      ${client.custom_prompt}
-      --- CONVERSATIONAL MANDATES ---
-      1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
-      2. If you do not have their contact details yet (phone/email), find a natural way to ask for it.
-      --- CONVERSATIONAL MEMORY ---
-      ${memoryString}
-      --- CURRENT CUSTOMER MESSAGE ---
-      "${message}"
-      Draft your immediate reply response text below:
-    `;
+    // --- NEW: THE HUMAN HANDOFF PROTOCOL ---
+    const escalationTriggers = ['human', 'manager', 'real person', 'complaint', 'pissed', 'wrong order', 'speak to someone', 'customer service', 'agent'];
+    const needsHandoff = escalationTriggers.some(keyword => message.toLowerCase().includes(keyword));
 
-    const chatResult = await chatModel.generateContent(chatPrompt);
-    const aiReply = chatResult.response.text().trim();
-
-    // 4. Silent parsing to extract CRM lead records
-    // Enforce strict JSON output so the parser never crashes
-    const analystModel = genAI.getGenerativeModel({ 
-      model: "gemini-2.5-flash",
-      generationConfig: { responseMimeType: "application/json" } 
-    });
-
-    const extractionPrompt = `
-      Analyze this entire conversation history between a customer and an AI assistant:
-      ${memoryString}
-      Customer: "${message}"
-
-      Extract parameters and return a valid JSON object matching these exact keys:
-      {
-        "intent": "2-4 word summary of customer need based on the entire conversation",
-        "phone": "Extracted phone sequence or 'Pending'",
-        "email": "Extracted email address string or 'Pending'",
-        "timeline": "Time context or 'Pending'",
-        "status": "'Hot' if contact info or immediate buying urgency is found, otherwise 'Warm' or 'Cold'"
-      }
-    `;
-
+    let aiReply = "";
     let extractedData = { intent: "Website Visitor", phone: "Pending", email: "Pending", timeline: "Pending", status: "Cold" };
-    try {
-      const analystResult = await analystModel.generateContent(extractionPrompt);
-      // Because we forced application/json, we can parse it directly without string manipulation
-      extractedData = JSON.parse(analystResult.response.text());
-    } catch (e) {
-      console.error("AI Parser exception:", e);
+    let dbStatus = 'replied';
+
+    if (needsHandoff) {
+      // Skip the AI and trigger the safety protocol
+      aiReply = "I understand. I am pausing my automated responses and pinging the team right now. A real human will jump into this chat shortly to help you out.";
+      dbStatus = 'escalated';
+      extractedData.intent = "Needs Human Assistance";
+      extractedData.status = "Hot"; 
+    } else {
+      // 3. Conversational reply from Gemini
+      const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+      const chatPrompt = `
+        You are the elite digital receptionist and client qualification agent for ${client.business_name}.
+        --- CLIENT PROFILE & INSTRUCTIONS ---
+        ${client.custom_prompt}
+        --- CONVERSATIONAL MANDATES ---
+        1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
+        2. If you do not have their contact details yet (phone/email), find a natural way to ask for it.
+        --- CONVERSATIONAL MEMORY ---
+        ${memoryString}
+        --- CURRENT CUSTOMER MESSAGE ---
+        "${message}"
+        Draft your immediate reply response text below:
+      `;
+
+      const chatResult = await chatModel.generateContent(chatPrompt);
+      aiReply = chatResult.response.text().trim();
+
+      // 4. Silent parsing to extract CRM lead records
+      const analystModel = genAI.getGenerativeModel({ 
+        model: "gemini-2.5-flash",
+        generationConfig: { responseMimeType: "application/json" } 
+      });
+
+      const extractionPrompt = `
+        Analyze this entire conversation history between a customer and an AI assistant:
+        ${memoryString}
+        Customer: "${message}"
+
+        Extract parameters and return a valid JSON object matching these exact keys:
+        {
+          "intent": "2-4 word summary of customer need based on the entire conversation",
+          "phone": "Extracted phone sequence or 'Pending'",
+          "email": "Extracted email address string or 'Pending'",
+          "timeline": "Time context or 'Pending'",
+          "status": "'Hot' if contact info or immediate buying urgency is found, otherwise 'Warm' or 'Cold'"
+        }
+      `;
+
+      try {
+        const analystResult = await analystModel.generateContent(extractionPrompt);
+        extractedData = JSON.parse(analystResult.response.text());
+      } catch (e) {
+        console.error("AI Parser exception:", e);
+      }
     }
 
     // 5. Commit directly into omnichannel channel
@@ -90,7 +103,7 @@ module.exports = async (req, res) => {
       ig_username: `Web_${visitorId.substring(0, 6)}`,
       incoming_message: message,
       ai_reply: aiReply,
-      status: 'replied',
+      status: dbStatus, // <-- UPDATED to use dynamic status
       business_ig_id: client.ig_account_id,
       user_id: client.user_id,
       platform: 'Website',

@@ -498,12 +498,14 @@ export default function PremiumLeadDashboard() {
                               <Clock className="w-4 h-4 text-zinc-500" /> {data.timeline || 'Pending'}
                             </TableCell>
                             <TableCell className="text-right">
-                              <Badge variant="secondary" className={`${data.status === 'Hot' ? 'bg-orange-500/20 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.2)]' :
-                                  data.status === 'Warm' ? 'bg-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]' :
-                                    'bg-white/5 text-zinc-400'} border-transparent px-3 py-1 text-xs`}>
-                                {data.status || 'Cold'}
-                              </Badge>
-                            </TableCell>
+      <Badge variant="secondary" className={`${
+        lead.status === 'escalated' ? 'bg-red-500/20 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)] border-red-500/50' :
+        data.status === 'Hot' ? 'bg-orange-500/20 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.2)]' :
+        data.status === 'Warm' ? 'bg-blue-500/20 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.2)]' :
+        'bg-white/5 text-zinc-400'} border-transparent px-3 py-1 text-xs`}>
+        {lead.status === 'escalated' ? 'Escalated' : data.status || 'Cold'}
+      </Badge>
+    </TableCell>
                           </TableRow>
                         );
                       })}

@@ -59,33 +59,70 @@ module.exports = async (req, res) => {
       historyString = chatHistory.reverse().map(h => `Customer: ${h.incoming_message}\nYou: ${h.ai_reply}`).join('\n');
     }
 
-    // 5. The Brain: Draft the pitch with MEMORY
-     
-    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
-    const prompt = `You are the elite digital sales closer and lead capture assistant for a local business. 
+    // --- NEW: THE HUMAN HANDOFF PROTOCOL ---
+    const escalationTriggers = ['human', 'manager', 'real person', 'complaint', 'pissed', 'wrong order', 'speak to someone', 'customer service', 'agent'];
+    const needsHandoff = escalationTriggers.some(keyword => msg.incoming_message.toLowerCase().includes(keyword));
 
-    --- BUSINESS KNOWLEDGE ---
-    ${client.custom_prompt}
-    
-    --- CRITICAL CLOSING RULES ---
-    1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
-    2. THE DEMO TRIGGER: If the customer's message contains the word "DEMO", immediately reply with: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar here: "https://calendar.app.google/rbTHX427Am9dFxhN9" and stop asking questions.
-    3. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. 
-    4. THE ASK: If (and only if) we do not have their contact info yet, casually ask for a phone number or email.
+    let aiReply = "";
+    let extractedData = { intent: "Unknown", phone: "Pending", email: "Pending", timeline: "Pending", status: "Cold" };
+    let dbStatus = 'replied';
 
-    --- RECENT CONVERSATION (Memory) ---
-    ${historyString}
+    if (needsHandoff) {
+      console.log("🚨 Escalation triggered! Halting AI.");
+      aiReply = "I understand. I am pausing my automated responses and pinging the team right now. A real human will jump into this chat shortly to help you out.";
+      dbStatus = 'escalated';
+      extractedData.intent = "Needs Human Assistance";
+      extractedData.status = "Hot";
+    } else {
 
-    --- NEW MESSAGE TO REPLY TO ---
-    CUSTOMER MESSAGE: "${msg.incoming_message}"
-    
-    Draft the DM reply:`;
-    
-    const result = await model.generateContent(prompt);
-    const aiReply = result.response.text();
-    
-    
-    console.log(`AI drafted reply: ${aiReply}`);
+      // 5. The Brain: Draft the pitch with MEMORY
+      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+      const prompt = `You are the elite digital sales closer and lead capture assistant for a local business. 
+
+      --- BUSINESS KNOWLEDGE ---
+      ${client.custom_prompt}
+      
+      --- CRITICAL CLOSING RULES ---
+      1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
+      2. THE DEMO TRIGGER: If the customer's message contains the word "DEMO", immediately reply with: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar here: "https://calendar.app.google/rbTHX427Am9dFxhN9" and stop asking questions.
+      3. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. 
+      4. THE ASK: If (and only if) we do not have their contact info yet, casually ask for a phone number or email.
+
+      --- RECENT CONVERSATION (Memory) ---
+      ${historyString}
+
+      --- NEW MESSAGE TO REPLY TO ---
+      CUSTOMER MESSAGE: "${msg.incoming_message}"
+      
+      Draft the DM reply:`;
+      
+      const result = await model.generateContent(prompt);
+      aiReply = result.response.text();
+      console.log(`AI drafted reply: ${aiReply}`);
+
+      // --- NEW: THE ANALYST BRAIN (Data Extraction Bypass) ---
+      console.log("🔍 Extracting lead intelligence...");
+      const analystModel = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+      const extractionPrompt = `Analyze this Instagram or Facebook DM sent to a local business: "${msg.incoming_message}"
+      
+      Extract the following information and output ONLY a valid, raw JSON object with these exact keys (no markdown formatting):
+      {
+        "intent": "Brief 2-4 word summary of what they want",
+        "phone": "Any phone number found, or 'Pending'",
+        "email": "Any email address found, or 'Pending'",
+        "timeline": "Any mentioned timeframe, or 'Pending'",
+        "status": "Rate as 'Hot', 'Warm', or 'Cold'"
+      }`;
+
+      try {
+        const analystResult = await analystModel.generateContent(extractionPrompt);
+        const jsonText = analystResult.response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+        extractedData = JSON.parse(jsonText);
+        console.log("📊 Extraction complete:", extractedData);
+      } catch (e) {
+        console.error("❌ Failed to parse extracted JSON:", e);
+      }
+    }
 
     // Use the numeric ID to reply. (Fallback to ig_username just in case it's an old message)
     const metaPayload = {
@@ -143,7 +180,7 @@ module.exports = async (req, res) => {
       .from('b2b_inbox')
       .update({ 
         ai_reply: aiReply, 
-        status: 'replied',
+        status: dbStatus, // <-- UPDATED to use dynamic status
         extracted_data: extractedData 
       })
       .eq('id', msg.id);
