@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign, Image as ImageIcon, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -177,9 +177,30 @@ ${extraRules}
 
                   {/* --- NEW: DOCUMENT UPLOAD LAYER --- */}
                   <div className="space-y-2 pt-4 border-t border-white/5">
-                    <Label className="text-zinc-300 flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4 text-purple-400"/> Upload Business Documents (PDF / Text)
-                    </Label>
+                    
+                    <div className="flex items-center gap-2">
+                      <Label className="text-zinc-300 flex items-center gap-2">
+                        <ImageIcon className="w-4 h-4 text-purple-400"/> Upload Business Documents (PDF / Text)
+                      </Label>
+                      
+                      {/* THE TAILWIND HOVER TOOLTIP */}
+                      <div className="group relative flex items-center">
+                        <Info className="w-4 h-4 text-zinc-500 hover:text-orange-500 transition-colors cursor-help" />
+                        
+                        {/* The Hidden Tooltip Box */}
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 w-64 p-3 bg-zinc-800 border border-white/10 rounded-lg shadow-2xl text-xs text-zinc-300 z-50 pointer-events-none">
+                          <strong className="text-orange-400 block mb-1.5 text-[11px] uppercase tracking-wider">Best Practices</strong>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li>Use digital PDFs (not scanned photos) so the AI can read the text.</li>
+                            <li>Keep files under 2MB for fast processing.</li>
+                            <li>Menus, price sheets, and company FAQs yield the best results.</li>
+                          </ul>
+                          {/* The Little Triangle Arrow at the bottom */}
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-zinc-800" />
+                        </div>
+                      </div>
+                    </div>
+
                     <p className="text-xs text-zinc-500">
                       Drop a catering menu, price sheet, or company handbook. The AI will instantly absorb it.
                     </p>
@@ -217,9 +238,8 @@ ${extraRules}
                               const base64String = reader.result.split(',')[1];
                               
                               try {
-                                alert("AI is processing and reading your PDF document now...");
+                                alert("AI is reading and sorting your document...");
                                 
-                                // Grab the secure user token
                                 const { data: { session } } = await supabase.auth.getSession();
                                 
                                 const res = await fetch('/api/upload-knowledge', {
@@ -235,10 +255,20 @@ ${extraRules}
                                 });
 
                                 const data = await res.json();
-                                if (data.success) {
-                                  alert("Success! The AI has successfully read your document and updated its memory bank.");
-                                  // Optional: Append the preview text to the UI state if desired
-                                  setExtraRules(prev => prev + `\n\n[Sourced from ${file.name}]:\n${data.textPreview}`);
+                                if (data.success && data.extractedData) {
+                                  // Auto-fill the UI fields!
+                                  // We use 'prev' so it adds to anything they already typed instead of deleting it
+                                  if (data.extractedData.pricing) {
+                                    setPricing(prev => prev ? prev + '\n\n' + data.extractedData.pricing : data.extractedData.pricing);
+                                  }
+                                  if (data.extractedData.hours) {
+                                    setHours(prev => prev ? prev + '\n\n' + data.extractedData.hours : data.extractedData.hours);
+                                  }
+                                  if (data.extractedData.extra_rules) {
+                                    setExtraRules(prev => prev ? prev + '\n\n[From Document]:\n' + data.extractedData.extra_rules : '[From Document]:\n' + data.extractedData.extra_rules);
+                                  }
+                                  
+                                  alert("Success! Review changes and click 'Update AI Brain' to save.");
                                 } else {
                                   alert(`Extraction error: ${data.error}`);
                                 }

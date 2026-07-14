@@ -32,43 +32,42 @@ export default async function handler(req, res) {
 
     console.log(`Processing document upload [${fileName}] for user: ${user.id}`);
 
-    // 2. Fire up the Gemini Vision/Document Engine
+    // 2. Fire up the Gemini Engine (Forcing JSON Output)
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-2.5-flash",
+      generationConfig: { responseMimeType: "application/json" } // Force strict JSON!
+    }); 
 
-    // 3. Ask Gemini to accurately transcribe the document
-    const prompt = `You are a precise data extraction tool. Extract and transcribe all the text from this PDF document exactly as it appears. Preserve the structural formatting (headings, lists, pricing). Do not add any conversational filler or markdown, just return the raw extracted text.`;
+    // 3. Ask Gemini to extract and sort the data
+    const prompt = `
+      You are an elite data extraction assistant. Read the attached business document (PDF) and extract the information into a structured format. 
+      
+      Return a valid JSON object with the following exact keys:
+      {
+        "pricing": "Extract all menu items, services, and prices here.",
+        "hours": "Extract all operating hours and days closed here.",
+        "extra_rules": "Extract any catering rules, delivery fees, or strict business policies here."
+      }
+      If a specific category of information is not found in the document, return an empty string for that key.
+    `;
     
     const result = await model.generateContent([
       prompt,
-      {
-        inlineData: {
-          data: fileBase64,
-          mimeType: "application/pdf"
-        }
-      }
+      { inlineData: { data: fileBase64, mimeType: "application/pdf" } }
     ]);
 
-    const cleanExtractedText = result.response.text().trim();
+    // Parse the JSON returned by Gemini
+    const extractedData = JSON.parse(result.response.text());
 
-    if (!cleanExtractedText) {
-      return res.status(422).json({ error: 'Could not extract any structural text from this PDF.' });
-    }
-
-    // 4. Upsert the exact text into the client's record
-    const { error: dbError } = await supabase
-      .from('clients')
-      .update({ pdf_knowledge: cleanExtractedText })
-      .eq('user_id', user.id);
-
-    if (dbError) throw dbError;
-
-    console.log(` Successfully parsed PDF and synced to Brain Matrix.`);
+    // 4. We will NOT save to the DB here. We will send it back to the frontend 
+    // so the user can review it in the text boxes before clicking "Update AI Brain"
+    console.log(` Successfully parsed PDF into structured JSON.`);
 
     return res.status(200).json({ 
       success: true, 
-      message: 'Document successfully digested by AI brain!',
-      textPreview: cleanExtractedText.substring(0, 200) + '...'
+      message: 'Document successfully sorted!',
+      extractedData: extractedData
     });
 
   } catch (error) {
