@@ -30,20 +30,26 @@ export default function BotBrain() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch the client's current settings
+      // Fetch the specific UI columns we just created
       const { data, error } = await supabase
         .from('clients')
-        .select('id, custom_prompt, business_name')
+        .select('id, custom_prompt, business_name, tone, pricing, hours, extra_rules')
         .eq('user_id', session.user.id)
         .single();
 
       if (data) {
         setClientId(data.id);
         setBusinessName(data.business_name || '');
+        setTone(data.tone || '');
+        setPricing(data.pricing || '');
+        setHours(data.hours || '');
         
-        // If they already have a custom_prompt, we dump it into the 'extraRules' box 
-        // to ensure we don't accidentally delete their previous instructions.
-        if (data.custom_prompt) {
+        // Smart fallback: If they are a brand new user from onboarding, dump their onboarding text here.
+        // Otherwise, load exactly what is saved in the extra_rules column.
+        if (data.extra_rules !== null) {
+          setExtraRules(data.extra_rules || '');
+        } else if (data.custom_prompt) {
+           // This catches old data from before we did this database upgrade
           setExtraRules(data.custom_prompt);
         }
       }
@@ -65,10 +71,17 @@ ADDITIONAL STRICT RULES:
 ${extraRules}
     `.trim();
 
-    // Save back to the database
+    // Save back to the database - Both the UI columns AND the compiled AI Prompt
     const { error } = await supabase
       .from('clients')
-      .update({ custom_prompt: compiledPrompt, business_name: businessName })
+      .update({ 
+        custom_prompt: compiledPrompt, 
+        business_name: businessName,
+        tone: tone,
+        pricing: pricing,
+        hours: hours,
+        extra_rules: extraRules
+      })
       .eq('id', clientId);
 
     if (error) {
