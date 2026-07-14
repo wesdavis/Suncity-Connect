@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const pdf = require('pdf-parse');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Configure Vercel to allow larger menus/documents (up to 4MB)
 export const config = {
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing file payload or authentication token.' });
     }
 
-    // 1. Authenticate the incoming request using the user's JWT token
+    // 1. Authenticate the incoming request
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
     const token = authHeader.split(' ')[1];
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -32,22 +32,30 @@ export default async function handler(req, res) {
 
     console.log(`Processing document upload [${fileName}] for user: ${user.id}`);
 
-    // 2. Convert base64 stream back into a physical binary buffer
-    const pdfBuffer = Buffer.from(fileBase64, 'base64');
+    // 2. Fire up the Gemini Vision/Document Engine
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); 
 
-    // 3. Extract the clean text using pdf-parse
-    const parsedPdf = await pdf(pdfBuffer);
+    // 3. Ask Gemini to accurately transcribe the document
+    const prompt = `You are a precise data extraction tool. Extract and transcribe all the text from this PDF document exactly as it appears. Preserve the structural formatting (headings, lists, pricing). Do not add any conversational filler or markdown, just return the raw extracted text.`;
     
-    // Clean up excessive whitespace or system linebreaks
-    const cleanExtractedText = parsedPdf.text
-      .replace(/\n\s*\n/g, '\n') 
-      .trim();
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: fileBase64,
+          mimeType: "application/pdf"
+        }
+      }
+    ]);
+
+    const cleanExtractedText = result.response.text().trim();
 
     if (!cleanExtractedText) {
       return res.status(422).json({ error: 'Could not extract any structural text from this PDF.' });
     }
 
-    // 4. Upsert the data into the client's record
+    // 4. Upsert the exact text into the client's record
     const { error: dbError } = await supabase
       .from('clients')
       .update({ pdf_knowledge: cleanExtractedText })
@@ -55,7 +63,7 @@ export default async function handler(req, res) {
 
     if (dbError) throw dbError;
 
-    console.log(` Successfully parsed ${parsedPdf.numpages} pages and synced to Brain Matrix.`);
+    console.log(` Successfully parsed PDF and synced to Brain Matrix.`);
 
     return res.status(200).json({ 
       success: true, 
