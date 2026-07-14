@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, Palette, Link as LinkIcon, Instagram, Facebook, Globe, Star, Image as ImageIcon } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, Palette, LinkIcon, Instagram, Facebook, Globe, Star, ImageIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
