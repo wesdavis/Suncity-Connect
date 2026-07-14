@@ -175,6 +175,86 @@ ${extraRules}
                     />
                   </div>
 
+                  {/* --- NEW: DOCUMENT UPLOAD LAYER --- */}
+                  <div className="space-y-2 pt-4 border-t border-white/5">
+                    <Label className="text-zinc-300 flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-purple-400"/> Upload Business Documents (PDF / Text)
+                    </Label>
+                    <p className="text-xs text-zinc-500">
+                      Drop a catering menu, price sheet, or company handbook. The AI will instantly absorb it.
+                    </p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <input 
+                        type="file" 
+                        accept=".pdf,.txt"
+                        className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 file:cursor-pointer cursor-pointer w-full bg-zinc-900/30 p-2 rounded-xl border border-white/5"
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          
+                          if (file.size > 2 * 1024 * 1024) {
+                            alert("Please keep business documents under 2MB for processing safety.");
+                            return;
+                          }
+
+                          // 1. If it's a plain text file, read it directly on the client side
+                          if (file.type === "text/plain") {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              setExtraRules(prev => prev + `\n\nADDITIONAL DOCUMENT CONTEXT:\n${event.target.result}`);
+                            };
+                            reader.readAsText(file);
+                            return;
+                          }
+
+                          // 2. If it's a PDF, turn it into base64 and hit our extraction API
+                          if (file.type === "application/pdf") {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file); // This reads it as a data URL stream
+                            
+                            reader.onload = async () => {
+                              // Strip off the "data:application/pdf;base64," prefix to get the clean string
+                              const base64String = reader.result.split(',')[1];
+                              
+                              try {
+                                alert("AI is processing and reading your PDF document now...");
+                                
+                                // Grab the secure user token
+                                const { data: { session } } = await supabase.auth.getSession();
+                                
+                                const res = await fetch('/api/upload-knowledge', {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${session?.access_token}`
+                                  },
+                                  body: JSON.stringify({
+                                    fileBase64: base64String,
+                                    fileName: file.name
+                                  })
+                                });
+
+                                const data = await res.json();
+                                if (data.success) {
+                                  alert("Success! The AI has successfully read your document and updated its memory bank.");
+                                  // Optional: Append the preview text to the UI state if desired
+                                  setExtraRules(prev => prev + `\n\n[Sourced from ${file.name}]:\n${data.textPreview}`);
+                                } else {
+                                  alert(`Extraction error: ${data.error}`);
+                                }
+                              } catch (err) {
+                                console.error("Upload process crashed:", err);
+                                alert("Failed to connect to backend extraction pipeline.");
+                              }
+                            };
+                          } else {
+                            alert("Unsupported file format. Please upload a clear .pdf or .txt file.");
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   <Button 
                     onClick={handleSave} 
                     disabled={saving}

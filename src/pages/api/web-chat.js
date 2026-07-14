@@ -50,17 +50,24 @@ module.exports = async (req, res) => {
       extractedData.intent = "Needs Human Assistance";
       extractedData.status = "Hot"; 
     } else {
-      // 3. Conversational reply from Gemini
+      // 3. Conversational reply from Gemini with Expanded Document Matrix
       const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const chatPrompt = `
         You are the elite digital receptionist and client qualification agent for ${client.business_name}.
-        --- CLIENT PROFILE & INSTRUCTIONS ---
+        
+        --- CORE SERVICE RULES & TIMELINES ---
         ${client.custom_prompt}
+        
+        --- ATTACHED REFERENCE DOCUMENTS & MENUS ---
+        ${client.pdf_knowledge || "No additional business documents uploaded."}
+        
         --- CONVERSATIONAL MANDATES ---
         1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
         2. If you do not have their contact details yet (phone/email), find a natural way to ask for it.
+        
         --- CONVERSATIONAL MEMORY ---
         ${memoryString}
+        
         --- CURRENT CUSTOMER MESSAGE ---
         "${message}"
         Draft your immediate reply response text below:
