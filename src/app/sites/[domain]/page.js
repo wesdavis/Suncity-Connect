@@ -41,6 +41,7 @@ export default function MasterTemplate() {
       }
 
       setClient(data);
+      document.title = `${data.business_name} | AI Assistant`;
       setMessages([
         { role: 'ai', text: `Hi! I'm the digital assistant for ${data.business_name}. How can I help you today?` }
       ]);
@@ -168,7 +169,8 @@ export default function MasterTemplate() {
       {/* RIGHT SIDE / FULL MOBILE SCREEN: The AI Chat Interface */}
       <section className="flex flex-col w-full lg:w-1/2 h-full relative bg-zinc-950">
         
-        <header className="lg:hidden flex items-center justify-between p-4 bg-zinc-950/80 backdrop-blur-md border-b border-white/10 shrink-0 z-20">
+        {/* --- UPDATED: Solid, Sticky Mobile Header --- */}
+        <header className="lg:hidden sticky top-0 flex items-center justify-between p-4 bg-zinc-950 border-b border-white/10 shrink-0 z-50 shadow-md">
           <div className="flex items-center gap-3">
             {client.logo_url && <img src={client.logo_url} alt="Logo" className="h-8 w-auto" />}
             <div>
