@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign } from 'lucide-react';
+import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign, Image as ImageIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
