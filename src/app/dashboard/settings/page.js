@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, Palette, LinkIcon, Instagram, Facebook, Globe, Star, ImageIcon } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Instagram, Facebook, Globe, Star, Camera } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -127,7 +127,7 @@ export default function SettingsPage() {
                 
                 <div className="space-y-2">
                   <Label className="text-zinc-300 flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4 text-orange-500"/> Logo Image URL
+                    <Camera className="w-4 h-4 text-orange-500"/> Logo Image URL
                   </Label>
                   <Input 
                     placeholder="https://yourwebsite.com/logo.png" 
@@ -180,7 +180,7 @@ export default function SettingsPage() {
             <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl">
               <CardHeader>
                 <CardTitle className="text-xl text-white flex items-center gap-2">
-                  <LinkIcon className="w-5 h-5 text-blue-400" /> Public Links & Socials
+                  <ExternalLink className="w-5 h-5 text-blue-400" /> Public Links & Socials
                 </CardTitle>
                 <CardDescription className="text-zinc-400">These links will appear on your storefront's interactive menu.</CardDescription>
               </CardHeader>
