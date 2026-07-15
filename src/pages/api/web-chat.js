@@ -1,11 +1,9 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const twilio = require('twilio');
 const { Resend } = require('resend');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 module.exports = async (req, res) => {
@@ -21,7 +19,7 @@ module.exports = async (req, res) => {
     // 1. Resolve client profile from domain
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id')
+      .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge')
       .eq('custom_domain', domain)
       .single();
 
@@ -54,28 +52,16 @@ module.exports = async (req, res) => {
       extractedData.status = "Hot"; 
     } else {
       
-      // --- 1. DEFINE THE TOOLS ---
+      // --- 1. DEFINE ONLY EMAIL TOOLS ---
       const storefrontTools = [{
         functionDeclarations: [
           {
-            name: "send_sms",
-            description: "Sends a text message directly to the customer's phone.",
-            parameters: {
-              type: "OBJECT",
-              properties: {
-                phone_number: { type: "STRING", description: "The customer's 10-digit phone number with country code (e.g., +15551234567)." },
-                message: { type: "STRING", description: "The text message content to send." }
-              },
-              required: ["phone_number", "message"]
-            }
-          },
-          {
             name: "send_email",
-            description: "Sends an email to the customer.",
+            description: "Sends an email to the customer containing menus, business information, or follow-ups.",
             parameters: {
               type: "OBJECT",
               properties: {
-                customer_email: { type: "STRING", description: "The customer's email address." },
+                customer_email: { type: "STRING", description: "The customer's valid email address." },
                 subject: { type: "STRING", description: "The email subject line." },
                 email_body: { type: "STRING", description: "The full text content of the email." }
               },
@@ -102,9 +88,8 @@ module.exports = async (req, res) => {
         
         --- CONVERSATIONAL MANDATES ---
         1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
-        2. SMS ACTION: If the customer asks for a text or provides a phone number, USE the send_sms tool.
-        3. EMAIL ACTION: If the customer asks for an email or provides an email address, USE the send_email tool.
-        4. If you do not have their contact details yet (phone/email), find a natural way to ask for it.
+        2. EMAIL ACTION: IF the customer explicitly asks for an email OR provides an email address to receive files/information, YOU MUST USE the send_email tool immediately. Do not just talk about sending it.
+        3. If you do not have their email address yet, find a natural way to ask for it if they are looking for specific documents or follow-ups.
         
         --- CONVERSATIONAL MEMORY ---
         ${memoryString}
@@ -115,33 +100,18 @@ module.exports = async (req, res) => {
       `;
 
       const chatResult = await chatModel.generateContent(chatPrompt);
-      const functionCalls = chatResult.response.functionCalls;
+      
+      // Bulletproof function call resolution
+      const functionCalls = typeof chatResult.response.functionCalls === 'function' 
+        ? chatResult.response.functionCalls() 
+        : chatResult.response.functionCalls;
 
       // --- 3. THE INTERCEPTION LOOP ---
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
         
-        // TWILIO EXECUTION
-        if (call.name === "send_sms") {
-          const { phone_number, message } = call.args;
-          console.log(`📱 AI firing SMS to: ${phone_number}`);
-          try {
-            await twilioClient.messages.create({
-              body: message,
-              from: process.env.TWILIO_PHONE_NUMBER,
-              to: phone_number
-            });
-            aiReply = `I just shot that text over to ${phone_number}! Let me know if you need anything else. 🚀`;
-            extractedData.phone = phone_number;
-            extractedData.status = "Hot";
-          } catch (err) {
-            console.error("Twilio Error:", err);
-            aiReply = "I tried to shoot you a text, but the number didn't quite go through. Could you verify it for me?";
-          }
-        } 
-        
         // RESEND EXECUTION
-        else if (call.name === "send_email") {
+        if (call.name === "send_email") {
           const { customer_email, subject, email_body } = call.args;
           console.log(`✉️ AI firing Email to: ${customer_email}`);
           
@@ -157,9 +127,10 @@ module.exports = async (req, res) => {
             aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
             extractedData.email = customer_email;
             extractedData.status = "Hot";
+            extractedData.intent = "Email requested and sent";
           } catch (err) {
             console.error("Resend Error:", err);
-            aiReply = "I tried to send that email, but hit a glitch. Could you double-check the spelling of your email address?";
+            aiReply = "I tried to send that email, but hit a technical glitch. Could you double-check the spelling of your email address?";
           }
         }
       } else {
@@ -168,17 +139,14 @@ module.exports = async (req, res) => {
         
         // 4. Silent parsing to extract CRM lead records (Only runs if no tool was used)
         console.log("🔍 Extracting lead intelligence...");
-        const analystModel = genAI.getGenerativeModel({ 
-          model: "gemini-3.5-flash",
-          generationConfig: { responseMimeType: "application/json" } 
-        });
+        const analystModel = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
         const extractionPrompt = `
           Analyze this entire conversation history between a customer and an AI assistant:
           ${memoryString}
           Customer: "${message}"
 
-          Extract parameters and return a valid JSON object matching these exact keys:
+          Extract parameters and return a valid JSON object matching these exact keys. Output ONLY raw JSON:
           {
             "intent": "2-4 word summary of customer need based on the entire conversation",
             "phone": "Extracted phone sequence or 'Pending'",
@@ -190,14 +158,16 @@ module.exports = async (req, res) => {
 
         try {
           const analystResult = await analystModel.generateContent(extractionPrompt);
-          extractedData = JSON.parse(analystResult.response.text());
+          const rawText = analystResult.response.text();
+          const cleanJsonText = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+          extractedData = JSON.parse(cleanJsonText);
         } catch (e) {
           console.error("AI Parser exception:", e);
         }
       }
     }
 
-    // 5. Commit directly into omnichannel channel
+    // 5. Commit directly into omnisearch channel
     await supabase.from('b2b_inbox').insert([{
       ig_username: `Web_${visitorId.substring(0, 6)}`,
       incoming_message: message,
