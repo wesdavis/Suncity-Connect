@@ -30,7 +30,7 @@ export default function MasterTemplate() {
       const { data, error } = await supabase
         .from('clients')
         .select('id, business_name, custom_prompt, pdf_knowledge, logo_url, instagram_link, facebook_link, website_link, yelp_link')
-        .eq('domain', currentDomain)
+        .eq('custom_domain', currentDomain) // <-- This is the fix right here!
         .single();
 
       if (error || !data) {
