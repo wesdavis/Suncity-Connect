@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Instagram, Facebook, Globe, Star, Camera } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -197,7 +197,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 flex items-center gap-2"><Instagram className="w-4 h-4 text-pink-500"/> Instagram Profile</Label>
+                  <Label className="text-zinc-300 flex items-center gap-2"><AtSign className="w-4 h-4 text-pink-500"/> Instagram Profile</Label>
                   <Input 
                     placeholder="https://instagram.com/yourhandle" 
                     className="bg-zinc-900/50 border-white/10 text-white"
@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-zinc-300 flex items-center gap-2"><Facebook className="w-4 h-4 text-blue-500"/> Facebook Page</Label>
+                  <Label className="text-zinc-300 flex items-center gap-2"><ThumbsUp className="w-4 h-4 text-blue-500"/> Facebook Page</Label>
                   <Input 
                     placeholder="https://facebook.com/yourpage" 
                     className="bg-zinc-900/50 border-white/10 text-white"
