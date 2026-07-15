@@ -164,14 +164,17 @@ module.exports = async (req, res) => {
         else if (call.name === "send_email") {
           const { customer_email, subject, email_body } = call.args;
           console.log(`✉️ AI firing Email to: ${customer_email}`);
+
+          // Strip out any accidental quotes from the business name to protect email headers
+  const cleanBusinessName = client.business_name.replace(/['"]/g, '');
+
           try {
-            await resend.emails.send({
-              // NOTE: Change this to your verified domain once you go to production!
-              from: 'onboarding@resend.dev', 
-              to: customer_email,
-              subject: subject,
-              text: email_body
-            });
+    await resend.emails.send({
+      from: `${cleanBusinessName} Ai Assistant <AiAssistant@suncityconnect.com>`,
+      to: customer_email,
+      subject: subject,
+      text: email_body
+    });
             aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
             extractedData.email = customer_email;
             extractedData.status = "Hot";
