@@ -1,8 +1,10 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { Resend } = require('resend'); // <-- Add this line
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY); // <-- Initialize Resend
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -50,6 +52,34 @@ module.exports = async (req, res) => {
       extractedData.intent = "Needs Human Assistance";
       extractedData.status = "Hot"; 
     } else {
+      const emailTool = {
+        functionDeclarations: [
+          {
+            name: "send_lead_email",
+            description: "Sends an email with information, quotes, or pricing sheets directly to the customer.",
+            parameters: {
+              type: "OBJECT",
+              properties: {
+                customerEmail: { 
+                  type: "STRING", 
+                  description: "The verified email address provided by the customer." 
+                },
+                subject: { 
+                  type: "STRING", 
+                  description: "A professional, punchy subject line branded for the business." 
+                },
+                emailBody: { 
+                  type: "STRING", 
+                  description: "The complete body text of the email containing the requested quotes, materials, or answers." 
+                }
+              },
+              required: ["customerEmail", "subject", "emailBody"]
+            }
+          }
+        ]
+      };
+
+
       // 3. Conversational reply from Gemini with Expanded Document Matrix
       const chatModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
       const chatPrompt = `
@@ -74,7 +104,44 @@ module.exports = async (req, res) => {
       `;
 
       const chatResult = await chatModel.generateContent(chatPrompt);
-      aiReply = chatResult.response.text().trim();
+      const responseText = chatResult.response.text();
+      
+      // Check if Gemini is calling our function instead of sending pure text
+      const functionCalls = chatResult.response.functionCalls;
+
+      if (functionCalls && functionCalls.length > 0) {
+        const call = functionCalls[0];
+        
+        if (call.name === "send_lead_email") {
+          const { customerEmail, subject, emailBody } = call.args;
+          
+          console.log(`✉️ AI triggered email function execution to: ${customerEmail}`);
+          
+          try {
+            // Physically fire the email using your Resend key
+            await resend.emails.send({
+              from: `${client.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '')}@suncityconnect.com`,
+              to: customerEmail,
+              subject: subject,
+              text: emailBody
+            });
+
+            // Hand a confirmation back to the chat timeline so the user knows it hit their inbox
+            aiReply = `I've successfully processed that request and fired an email over to ${customerEmail}! Let me know if it doesn't show up in your inbox shortly.`;
+            
+            // Force save the extracted email directly into our lead profile update parameters
+            extractedData.email = customerEmail;
+            extractedData.status = "Hot";
+            
+          } catch (resendError) {
+            console.error("❌ Resend API Dispatch Failure:", resendError);
+            aiReply = "I attempted to send that email out to you, but my communication pipeline hit a temporary connection glitch. Could you double-check the spelling of your email address for me?";
+          }
+        }
+      } else {
+        // Fallback to standard text response if no function execution was requested
+        aiReply = responseText.trim();
+      }
 
       // 4. Silent parsing to extract CRM lead records
       const analystModel = genAI.getGenerativeModel({ 
