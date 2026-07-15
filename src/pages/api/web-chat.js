@@ -16,10 +16,10 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // 1. Resolve client profile from domain
+    // 1. Resolve client profile and fetch new appointment_duration setting
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge')
+      .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge, timezone, booking_link, appointment_duration')
       .eq('custom_domain', domain)
       .single();
 
@@ -31,13 +31,22 @@ module.exports = async (req, res) => {
       return res.status(200).json({ reply: "Our chat agent is currently offline. Please use our booking link." });
     }
 
-    // 2. Compile memory history
+    const clientTimezone = client.timezone || 'America/Denver';
+    const currentDateContext = new Date().toLocaleString("en-US", { 
+      timeZone: clientTimezone,
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
     let memoryString = "No previous history.";
     if (history && history.length > 0) {
       memoryString = history.slice(-4).map(h => `${h.role === 'user' ? 'Customer' : 'Assistant'}: ${h.text}`).join('\n');
     }
 
-    // --- THE HUMAN HANDOFF PROTOCOL ---
     const escalationTriggers = ['human', 'manager', 'real person', 'complaint', 'pissed', 'wrong order', 'speak to someone', 'customer service', 'agent'];
     const needsHandoff = escalationTriggers.some(keyword => message.toLowerCase().includes(keyword));
 
@@ -52,7 +61,6 @@ module.exports = async (req, res) => {
       extractedData.status = "Hot"; 
     } else {
       
-      // --- 1. DEFINE ONLY EMAIL TOOLS ---
       const storefrontTools = [{
         functionDeclarations: [
           {
@@ -67,11 +75,24 @@ module.exports = async (req, res) => {
               },
               required: ["customer_email", "subject", "email_body"]
             }
+          },
+          {
+            name: "check_and_book_appointment",
+            description: "Checks availability and books an appointment directly onto the business's native calendar.",
+            parameters: {
+              type: "OBJECT",
+              properties: {
+                customer_name: { type: "STRING", description: "The customer's full name or first name." },
+                customer_email: { type: "STRING", description: "The customer's email address." },
+                appointment_time: { type: "STRING", description: "The requested date and time translated into ISO 8601 format (e.g., 2026-07-20T14:00:00Z)." },
+                service_type: { type: "STRING", description: "The specific service they are booking, if mentioned." }
+              },
+              required: ["customer_name", "customer_email", "appointment_time"]
+            }
           }
         ]
       }];
 
-      // 2. INJECT TOOLS INTO GEMINI
       const chatModel = genAI.getGenerativeModel({ 
         model: "gemini-3.5-flash",
         tools: storefrontTools
@@ -79,6 +100,10 @@ module.exports = async (req, res) => {
 
       const chatPrompt = `
         You are the elite digital receptionist and client qualification agent for ${client.business_name}.
+        
+        --- CRITICAL TIME CONTEXT ---
+        Today's date and current time for this business is: ${currentDateContext}. 
+        Appointments take ${client.appointment_duration || 60} minutes. 
         
         --- CORE SERVICE RULES & TIMELINES ---
         ${client.custom_prompt}
@@ -88,8 +113,10 @@ module.exports = async (req, res) => {
         
         --- CONVERSATIONAL MANDATES ---
         1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
-        2. EMAIL ACTION: IF the customer explicitly asks for an email OR provides an email address to receive files/information, YOU MUST USE the send_email tool immediately. Do not just talk about sending it.
-        3. If you do not have their email address yet, find a natural way to ask for it if they are looking for specific documents or follow-ups.
+        2. EMAIL ACTION: IF the customer explicitly asks for an email OR provides an email address to receive files/information, YOU MUST USE the send_email tool immediately. 
+        3. CALENDAR ACTION: If the customer wants to book a time/appointment and provides their name, email, and desired time, USE the check_and_book_appointment tool.
+        4. MISSING BOOKING INFO: If they want to book but haven't provided their name, email, or a specific time, ask for the missing details. 
+        5. THIRD PARTY CALENDAR: If this business has a custom booking link (${client.booking_link || "None provided"}), provide them the link instead of using the native tool.
         
         --- CONVERSATIONAL MEMORY ---
         ${memoryString}
@@ -101,22 +128,17 @@ module.exports = async (req, res) => {
 
       const chatResult = await chatModel.generateContent(chatPrompt);
       
-      // Bulletproof function call resolution
       const functionCalls = typeof chatResult.response.functionCalls === 'function' 
         ? chatResult.response.functionCalls() 
         : chatResult.response.functionCalls;
 
-      // --- 3. THE INTERCEPTION LOOP ---
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
         
-        // RESEND EXECUTION
         if (call.name === "send_email") {
           const { customer_email, subject, email_body } = call.args;
           console.log(`✉️ AI firing Email to: ${customer_email}`);
-          
           const cleanBusinessName = client.business_name.replace(/['"]/g, '');
-
           try {
             await resend.emails.send({
               from: `${cleanBusinessName} Assistant <assistant@suncityconnect.com>`, 
@@ -125,19 +147,81 @@ module.exports = async (req, res) => {
               text: email_body
             });
             aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
-            extractedData.email = customer_email;
-            extractedData.status = "Hot";
-            extractedData.intent = "Email requested and sent";
+            extractedData = { ...extractedData, email: customer_email, status: "Hot", intent: "Email requested and sent" };
           } catch (err) {
             console.error("Resend Error:", err);
             aiReply = "I tried to send that email, but hit a technical glitch. Could you double-check the spelling of your email address?";
           }
         }
+        
+        else if (call.name === "check_and_book_appointment") {
+          const { customer_name, customer_email, appointment_time, service_type } = call.args;
+          console.log(`📅 AI booking attempt: ${appointment_time} for ${customer_name}`);
+
+          try {
+            // THE ADVANCED OVERLAP MATH
+            const durationMinutes = client.appointment_duration || 60;
+            const proposedStart = new Date(appointment_time);
+            const proposedEnd = new Date(proposedStart.getTime() + durationMinutes * 60000);
+
+            // Fetch the whole day's appointments to check for conflicts
+            const dayStart = new Date(proposedStart);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(proposedStart);
+            dayEnd.setHours(23, 59, 59, 999);
+
+            const { data: existingAppts, error: fetchError } = await supabase
+              .from('appointments')
+              .select('appointment_time, end_time')
+              .eq('user_id', client.user_id)
+              .neq('status', 'cancelled')
+              .gte('appointment_time', dayStart.toISOString())
+              .lte('appointment_time', dayEnd.toISOString());
+
+            if (fetchError) throw fetchError;
+
+            // Check if any existing appointment overlaps with the proposed block
+            const hasConflict = existingAppts.some(appt => {
+              const existStart = new Date(appt.appointment_time);
+              // Fallback for older database rows that might not have an end_time saved yet
+              const existEnd = appt.end_time ? new Date(appt.end_time) : new Date(existStart.getTime() + durationMinutes * 60000);
+              
+              return (proposedStart < existEnd && proposedEnd > existStart);
+            });
+
+            if (hasConflict) {
+              const readableTime = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+              aiReply = `I'm so sorry, but it looks like that block around ${readableTime} is already taken! Do you have another time in mind that might work?`;
+            } else {
+              // 2. Slot is completely clear, write to database with the end_time
+              const { error: insertError } = await supabase
+                .from('appointments')
+                .insert([{
+                  user_id: client.user_id,
+                  customer_name: customer_name,
+                  customer_email: customer_email,
+                  appointment_time: proposedStart.toISOString(),
+                  end_time: proposedEnd.toISOString(),
+                  service_type: service_type || 'General Booking',
+                  status: 'confirmed'
+                }]);
+
+              if (insertError) throw insertError;
+
+              const successTime = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+              aiReply = `Perfect, ${customer_name}! You are all locked in for ${successTime}. I've added it to the schedule!`;
+              extractedData = { ...extractedData, email: customer_email, status: "Hot", intent: "Appointment Confirmed", timeline: successTime };
+            }
+          } catch (err) {
+            console.error("Calendar DB Error:", err);
+            aiReply = "I tried to lock in that time, but our calendar system is updating. Could you give me that time one more time?";
+          }
+        }
+
       } else {
         // Fallback: Gemini just wanted to chat normally
         aiReply = chatResult.response.text().trim();
         
-        // 4. Silent parsing to extract CRM lead records (Only runs if no tool was used)
         console.log("🔍 Extracting lead intelligence...");
         const analystModel = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
@@ -167,7 +251,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // 5. Commit directly into omnisearch channel
     await supabase.from('b2b_inbox').insert([{
       ig_username: `Web_${visitorId.substring(0, 6)}`,
       incoming_message: message,
