@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
 
-    // 1. Resolve client profile and fetch new appointment_duration setting
+    // 1. Resolve client profile and fetch settings
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge, timezone, booking_link, appointment_duration')
@@ -31,6 +31,7 @@ module.exports = async (req, res) => {
       return res.status(200).json({ reply: "Our chat agent is currently offline. Please use our booking link." });
     }
 
+    // Pass the EXACT timezone offset to the AI to prevent the 6-hour UTC bug
     const clientTimezone = client.timezone || 'America/Denver';
     const currentDateContext = new Date().toLocaleString("en-US", { 
       timeZone: clientTimezone,
@@ -39,7 +40,8 @@ module.exports = async (req, res) => {
       month: 'long', 
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZoneName: 'shortOffset' // This outputs e.g., "GMT-6"
     });
 
     let memoryString = "No previous history.";
@@ -84,7 +86,10 @@ module.exports = async (req, res) => {
               properties: {
                 customer_name: { type: "STRING", description: "The customer's full name or first name." },
                 customer_email: { type: "STRING", description: "The customer's email address." },
-                appointment_time: { type: "STRING", description: "The requested date and time translated into ISO 8601 format (e.g., 2026-07-20T14:00:00Z)." },
+                appointment_time: { 
+                  type: "STRING", 
+                  description: "The requested date/time in ISO format WITH the local UTC offset (e.g., 2026-07-20T19:00:00-06:00). NEVER use 'Z'." 
+                },
                 service_type: { type: "STRING", description: "The specific service they are booking, if mentioned." }
               },
               required: ["customer_name", "customer_email", "appointment_time"]
@@ -104,6 +109,7 @@ module.exports = async (req, res) => {
         --- CRITICAL TIME CONTEXT ---
         Today's date and current time for this business is: ${currentDateContext}. 
         Appointments take ${client.appointment_duration || 60} minutes. 
+        When using the booking tool, you MUST format the ISO string using the exact GMT offset provided above.
         
         --- CORE SERVICE RULES & TIMELINES ---
         ${client.custom_prompt}
@@ -134,11 +140,12 @@ module.exports = async (req, res) => {
 
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
+        const cleanBusinessName = client.business_name.replace(/['"]/g, '');
         
+        // --- STANDARD EMAIL EXECUTION ---
         if (call.name === "send_email") {
           const { customer_email, subject, email_body } = call.args;
           console.log(`✉️ AI firing Email to: ${customer_email}`);
-          const cleanBusinessName = client.business_name.replace(/['"]/g, '');
           try {
             await resend.emails.send({
               from: `${cleanBusinessName} Assistant <assistant@suncityconnect.com>`, 
@@ -154,17 +161,16 @@ module.exports = async (req, res) => {
           }
         }
         
+        // --- CALENDAR & AUTO-EMAIL EXECUTION ---
         else if (call.name === "check_and_book_appointment") {
           const { customer_name, customer_email, appointment_time, service_type } = call.args;
           console.log(`📅 AI booking attempt: ${appointment_time} for ${customer_name}`);
 
           try {
-            // THE ADVANCED OVERLAP MATH
             const durationMinutes = client.appointment_duration || 60;
             const proposedStart = new Date(appointment_time);
             const proposedEnd = new Date(proposedStart.getTime() + durationMinutes * 60000);
 
-            // Fetch the whole day's appointments to check for conflicts
             const dayStart = new Date(proposedStart);
             dayStart.setHours(0, 0, 0, 0);
             const dayEnd = new Date(proposedStart);
@@ -180,12 +186,9 @@ module.exports = async (req, res) => {
 
             if (fetchError) throw fetchError;
 
-            // Check if any existing appointment overlaps with the proposed block
             const hasConflict = existingAppts.some(appt => {
               const existStart = new Date(appt.appointment_time);
-              // Fallback for older database rows that might not have an end_time saved yet
               const existEnd = appt.end_time ? new Date(appt.end_time) : new Date(existStart.getTime() + durationMinutes * 60000);
-              
               return (proposedStart < existEnd && proposedEnd > existStart);
             });
 
@@ -193,7 +196,8 @@ module.exports = async (req, res) => {
               const readableTime = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
               aiReply = `I'm so sorry, but it looks like that block around ${readableTime} is already taken! Do you have another time in mind that might work?`;
             } else {
-              // 2. Slot is completely clear, write to database with the end_time
+              
+              // 1. Slot is clear, write to database
               const { error: insertError } = await supabase
                 .from('appointments')
                 .insert([{
@@ -208,9 +212,27 @@ module.exports = async (req, res) => {
 
               if (insertError) throw insertError;
 
-              const successTime = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-              aiReply = `Perfect, ${customer_name}! You are all locked in for ${successTime}. I've added it to the schedule!`;
-              extractedData = { ...extractedData, email: customer_email, status: "Hot", intent: "Appointment Confirmed", timeline: successTime };
+              const successDate = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, weekday: 'long', month: 'long', day: 'numeric' });
+              const successTime = proposedStart.toLocaleString("en-US", { timeZone: clientTimezone, hour: 'numeric', minute: '2-digit' });
+              
+              // 2. Draft AI Reply
+              aiReply = `Perfect, ${customer_name}! You are all locked in for ${successDate} at ${successTime}. I just sent a confirmation email to ${customer_email}!`;
+              extractedData = { ...extractedData, email: customer_email, status: "Hot", intent: "Appointment Confirmed", timeline: `${successDate} at ${successTime}` };
+
+              // 3. SILENT AUTO-EMAIL TRIGGER
+              if (customer_email && customer_email.includes('@')) {
+                try {
+                  await resend.emails.send({
+                    from: `${cleanBusinessName} <assistant@suncityconnect.com>`, 
+                    to: customer_email,
+                    subject: `Appointment Confirmed: ${cleanBusinessName}`,
+                    text: `Hi ${customer_name},\n\nYou are all set! Your appointment is confirmed for ${successDate} at ${successTime}.\n\nIf you need to reschedule or have any questions, just reply directly to this email.\n\nThanks,\n${cleanBusinessName}`
+                  });
+                  console.log(`✉️ Auto-confirmation sent to: ${customer_email}`);
+                } catch (emailErr) {
+                  console.error("Auto-email Resend Error:", emailErr);
+                }
+              }
             }
           } catch (err) {
             console.error("Calendar DB Error:", err);
