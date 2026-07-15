@@ -27,11 +27,10 @@ export default function MasterTemplate() {
       // If the hook hasn't caught the URL yet, pause and wait
       if (!currentDomain) return;
 
-      // Look up the client in your database based on their custom domain
       const { data, error } = await supabase
         .from('clients')
-        .select('*')
-        .eq('custom_domain', currentDomain)
+        .select('id, business_name, custom_prompt, pdf_knowledge, logo_url, instagram_link, facebook_link, website_link, yelp_link')
+        .eq('domain', currentDomain)
         .single();
 
       if (error || !data) {
@@ -188,13 +187,74 @@ export default function MasterTemplate() {
                 <Info className="w-6 h-6" />
               </button>
             </SheetTrigger>
-            <SheetContent side="right" className="bg-zinc-950 border-l border-white/10 w-[85%] sm:w-sm overflow-y-auto p-6">
-              <SheetHeader className="text-left mt-4 mb-8">
-                {client.logo_url && <img src={client.logo_url} alt={client.business_name} className="h-12 w-auto mb-4" />}
-                <SheetTitle className="text-2xl font-black text-white">{client.business_name}</SheetTitle>
-              </SheetHeader>
-              <CompanyInfoBlock />
-            </SheetContent>
+            {/* --- DYNAMIC LINKTREE SHEET --- */}
+        <SheetContent className="bg-zinc-950 border-l border-white/10 text-white p-6 sm:max-w-md w-full overflow-y-auto">
+          <SheetHeader className="space-y-6 flex flex-col items-center mt-8">
+            
+            {/* Dynamic Logo Avatar */}
+            {client.logo_url ? (
+              <img 
+                src={client.logo_url} 
+                alt={client.business_name} 
+                className="w-24 h-24 rounded-full object-cover border-2 border-white/10 shadow-xl" 
+              />
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-zinc-900 border-2 border-white/10 flex items-center justify-center shadow-xl">
+                <span className="text-3xl font-bold text-zinc-500 uppercase">
+                  {client.business_name?.charAt(0) || '?'}
+                </span>
+              </div>
+            )}
+            
+            <div className="text-center">
+              <SheetTitle className="text-2xl font-bold text-white">{client.business_name}</SheetTitle>
+              <SheetDescription className="text-zinc-400 mt-2">
+                24/7 Digital Concierge
+              </SheetDescription>
+            </div>
+          </SheetHeader>
+
+          {/* Action Buttons */}
+          <div className="mt-10 space-y-4">
+            
+            {client.website_link && (
+              <a href={client.website_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10 hover:bg-zinc-800 transition-colors w-full group">
+                <div className="bg-green-500/10 p-2 rounded-lg text-green-400 group-hover:bg-green-500/20 transition-colors">
+                  🌐
+                </div>
+                <span className="font-medium">Visit Website</span>
+              </a>
+            )}
+
+            {client.instagram_link && (
+              <a href={client.instagram_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10 hover:bg-zinc-800 transition-colors w-full group">
+                <div className="bg-pink-500/10 p-2 rounded-lg text-pink-400 group-hover:bg-pink-500/20 transition-colors">
+                  📸
+                </div>
+                <span className="font-medium">Instagram</span>
+              </a>
+            )}
+
+            {client.facebook_link && (
+              <a href={client.facebook_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10 hover:bg-zinc-800 transition-colors w-full group">
+                <div className="bg-blue-500/10 p-2 rounded-lg text-blue-400 group-hover:bg-blue-500/20 transition-colors">
+                  👍
+                </div>
+                <span className="font-medium">Facebook</span>
+              </a>
+            )}
+
+            {client.yelp_link && (
+              <a href={client.yelp_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/50 border border-white/10 hover:bg-zinc-800 transition-colors w-full group">
+                <div className="bg-red-500/10 p-2 rounded-lg text-red-400 group-hover:bg-red-500/20 transition-colors">
+                  ⭐
+                </div>
+                <span className="font-medium">Read Reviews</span>
+              </a>
+            )}
+
+          </div>
+        </SheetContent>
           </Sheet>
         </header>
 
