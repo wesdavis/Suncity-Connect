@@ -1,7 +1,7 @@
 'use client'; 
 import { useEffect, useState } from 'react'; 
 import { createClient } from '@supabase/supabase-js'; 
-import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Instagram, Facebook, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Edit3, Calendar as CalendarIcon, User, Check, X } from 'lucide-react'; 
+import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X } from 'lucide-react';
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";  
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; 
@@ -276,8 +276,8 @@ export default function PremiumLeadDashboard() {
                 </Button>               
               </a>               
               <Button variant="outline" onClick={() => router.push('/dashboard/settings')} className="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10">                 
-                <Edit3 className="w-4 h-4 mr-2" /> Quick Edit               
-              </Button>             
+                <Pen className="w-4 h-4 mr-2" /> Quick Edit               
+              </Button>           
             </div>           
           </div>                      
           
@@ -350,7 +350,7 @@ export default function PremiumLeadDashboard() {
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/40 border border-white/5 opacity-50">
                       <div className="flex items-center gap-2 text-zinc-400 text-sm font-medium">
-                        <Instagram className="w-4 h-4 text-pink-400" /> Instagram Bot
+                        <Smartphone className="w-4 h-4 text-pink-400" /> Instagram Bot
                       </div>
                       <Badge variant="outline" className="text-zinc-500 border-zinc-700">Sandbox</Badge>
                     </div>
