@@ -46,7 +46,8 @@ module.exports = async (req, res) => {
 
     let memoryString = "No previous history.";
     if (history && history.length > 0) {
-      memoryString = history.slice(-4).map(h => `${h.role === 'user' ? 'Customer' : 'Assistant'}: ${h.text}`).join('\n');
+      // Expanded to 12 to prevent amnesia during back-and-forth booking negotiations
+      memoryString = history.slice(-12).map(h => `${h.role === 'user' ? 'Customer' : 'Assistant'}: ${h.text}`).join('\n');
     }
 
     const escalationTriggers = ['human', 'manager', 'real person', 'complaint', 'pissed', 'wrong order', 'speak to someone', 'customer service', 'agent'];
@@ -121,7 +122,7 @@ module.exports = async (req, res) => {
         1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.
         2. EMAIL ACTION: IF the customer explicitly asks for an email OR provides an email address to receive files/information, YOU MUST USE the send_email tool immediately. 
         3. CALENDAR ACTION: If the customer wants to book a time/appointment and provides their name, email, and desired time, USE the check_and_book_appointment tool.
-        4. MISSING BOOKING INFO: If they want to book but haven't provided their name, email, or a specific time, ask for the missing details. 
+        4. MISSING BOOKING INFO: If they want to book, check the CONVERSATIONAL MEMORY first. If they already provided their name or email earlier in the chat, DO NOT ask for it again. Only ask for the specific details that are still missing.
         5. THIRD PARTY CALENDAR: If this business has a custom booking link (${client.booking_link || "None provided"}), provide them the link instead of using the native tool.
         
         --- CONVERSATIONAL MEMORY ---
