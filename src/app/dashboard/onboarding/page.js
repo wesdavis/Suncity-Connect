@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Loader2, ArrowRight, ArrowLeft, CheckCircle2, Link as LinkIcon, Calendar, Bot } from 'lucide-react';
+import { Loader2, ArrowRight, ArrowLeft, CheckCircle2, Link as LinkIcon, Calendar, Bot, Clock, Globe } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -22,13 +22,15 @@ export default function OnboardingWizard() {
     state: 'TX',    
     zipCode: '',
     primaryColor: '#ea580c', 
-    secondaryColor: '#ffffff', // NEW: Second Brand Color
+    secondaryColor: '#ffffff',
     logoUrl: '',
     companyBio: '',
     screeningRule: '',
-    calendarUrl: '', 
     isBotActive: true, 
-    enableCalendar: false 
+    enableCalendar: true,
+    timezone: 'America/Denver', // NEW: Crucial for AI Math
+    appointmentDuration: 60,    // NEW: Native Scheduling Length
+    bookingLink: ''             // NEW: Renamed to match Supabase schema
   });
 
   const nextStep = () => setStep((prev) => Math.min(prev + 1, 3));
@@ -54,6 +56,9 @@ export default function OnboardingWizard() {
       }
 
       const compiledPrompt = `COMPANY BIO: ${formData.companyBio}\n\nSTRICT RULES: ${formData.screeningRule}`;
+      
+      // Auto-generate the URL slug from the business name
+      const generatedDomain = formData.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
       const payload = {
         business_name: formData.businessName,
@@ -64,13 +69,19 @@ export default function OnboardingWizard() {
         zip_code: formData.zipCode,
         primary_color: formData.primaryColor,
         secondary_color: formData.secondaryColor,
-        custom_domain: formData.customDomain,
+        custom_domain: generatedDomain,
         is_bot_active: formData.isBotActive,
-        calendar_url: formData.enableCalendar ? formData.calendarUrl : null, 
-        custom_prompt: compiledPrompt
+        booking_link: formData.enableCalendar && formData.bookingLink ? formData.bookingLink : null, 
+        timezone: formData.timezone,
+        appointment_duration: formData.appointmentDuration,
+        custom_prompt: compiledPrompt,
+        // Pre-fill the Brain Database columns so the settings page doesn't crash
+        extra_rules: formData.screeningRule,
+        tone: 'Professional, friendly, and helpful.',
+        pricing: 'Prices vary based on service. Ask the customer for details or push for an appointment.',
+        hours: 'Standard business hours.'
       };
 
-      // 2. See if the row already exists
       const { data: existingClient } = await supabase
         .from('clients')
         .select('id')
@@ -79,7 +90,6 @@ export default function OnboardingWizard() {
 
       let dbError;
 
-      // 3. Update if they exist, Insert if they are brand new
       if (existingClient) {
         const { error } = await supabase
           .from('clients')
@@ -95,7 +105,7 @@ export default function OnboardingWizard() {
 
       if (dbError) throw dbError;
 
-      // 3. Force a complete browser hard-reload to break the Next.js cache
+      // Force a complete browser hard-reload to break the Next.js cache
       window.location.href = '/dashboard';
       
     } catch (error) {
@@ -163,7 +173,7 @@ export default function OnboardingWizard() {
               </div>
 
               <div className="space-y-3 pt-2 border-t border-white/5">
-                <h3 className="text-sm font-bold text-orange-500 uppercase tracking-wider">Physical Location</h3>
+                <h3 className="text-sm font-bold text-orange-500 uppercase tracking-wider">Physical Location & Time</h3>
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2 space-y-1.5">
                     <label className="text-xs text-zinc-400">Street Address</label>
@@ -219,6 +229,24 @@ export default function OnboardingWizard() {
                     />
                   </div>
                 </div>
+
+                {/* NEW: Timezone Selector */}
+                <div className="space-y-1.5 pt-2">
+                  <label className="text-xs text-zinc-400 flex items-center gap-1.5"><Globe className="w-3 h-3"/> Local Timezone (Crucial for AI Booking)</label>
+                  <select
+                    className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white focus:outline-none focus:border-orange-500 transition-colors text-sm"
+                    value={formData.timezone}
+                    onChange={(e) => handleFieldChange('timezone', e.target.value)}
+                  >
+                    <option value="America/New_York">Eastern Time (ET)</option>
+                    <option value="America/Chicago">Central Time (CT)</option>
+                    <option value="America/Denver">Mountain Time (MT)</option>
+                    <option value="America/Phoenix">Mountain Time - Arizona (No DST)</option>
+                    <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                    <option value="America/Anchorage">Alaska Time (AKT)</option>
+                    <option value="Pacific/Honolulu">Hawaii Time (HST)</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
@@ -227,9 +255,8 @@ export default function OnboardingWizard() {
           {step === 2 && (
             <div className="space-y-6 animate-in fade-in duration-200">
               
-              {/* Feature Toggle */}
               <div className="space-y-3">
-                <label className="text-sm font-medium text-zinc-300">Choose Your Lead Capture Features (Select Both if desired)</label>
+                <label className="text-sm font-medium text-zinc-300">Choose Your Lead Capture Features</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div 
                     onClick={() => handleFieldChange('isBotActive', !formData.isBotActive)}
@@ -245,26 +272,40 @@ export default function OnboardingWizard() {
                     className={`cursor-pointer border rounded-xl p-4 flex flex-col gap-2 transition-all ${formData.enableCalendar ? 'bg-orange-500/10 border-orange-500' : 'bg-zinc-950 border-white/10 hover:border-white/30'}`}
                   >
                     <Calendar className={`w-6 h-6 ${formData.enableCalendar ? 'text-orange-500' : 'text-zinc-500'}`} />
-                    <h4 className="font-bold text-white text-sm">Booking Calendar</h4>
-                    <p className="text-xs text-zinc-400">Embed your existing calendar directly onto the page.</p>
+                    <h4 className="font-bold text-white text-sm">AI Booking Calendar</h4>
+                    <p className="text-xs text-zinc-400">Let the AI schedule appointments natively on your dashboard.</p>
                   </div>
                 </div>
               </div>
 
-              {/* Calendar Link Input (Strictly hidden unless toggled) */}
+              {/* NEW: Native Scheduling + Override Link */}
               {formData.enableCalendar && (
-                <div className="space-y-1.5 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
-                  <label className="text-sm font-medium text-zinc-300">Public Calendar Link</label>
-                  <p className="text-xs text-zinc-400 mb-2">Paste your Calendly, Square, or Google Calendar booking URL.</p>
-                  <div className="relative">
-                    <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                <div className="space-y-4 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-zinc-300 flex items-center gap-1.5"><Clock className="w-4 h-4 text-orange-500"/> Default Appointment Length (Minutes)</label>
                     <input
-                      type="url"
-                      placeholder="https://calendly.com/your-business"
-                      className="w-full pl-10 bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
-                      value={formData.calendarUrl}
-                      onChange={(e) => handleFieldChange('calendarUrl', e.target.value)}
+                      type="number"
+                      min="15"
+                      step="15"
+                      className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white focus:outline-none focus:border-orange-500 transition-colors"
+                      value={formData.appointmentDuration}
+                      onChange={(e) => handleFieldChange('appointmentDuration', parseInt(e.target.value) || 60)}
                     />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium text-zinc-300">Third-Party Override Link (Optional)</label>
+                    <p className="text-xs text-zinc-400 mb-2">Leave blank to use the native AI calendar. Paste a Calendly link if you want the bot to hand off booking instead.</p>
+                    <div className="relative">
+                      <LinkIcon className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
+                      <input
+                        type="url"
+                        placeholder="https://calendly.com/your-business"
+                        className="w-full pl-10 bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                        value={formData.bookingLink}
+                        onChange={(e) => handleFieldChange('bookingLink', e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
