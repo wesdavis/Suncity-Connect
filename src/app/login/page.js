@@ -25,7 +25,6 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
   const router = useRouter();
 
-  // Redirect if already logged in
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.push('/dashboard');
@@ -33,11 +32,9 @@ export default function LoginPage() {
   }, [router]);
 
   const ensureClientRow = async (userId, email) => {
-    // Check if client already exists
     const { data: existing } = await supabase.from('clients').select('id, business_name').eq('user_id', userId).maybeSingle();
     if (existing) return existing;
 
-    // Create with safe defaults that satisfy NOT NULL constraints
     const businessName = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').trim() || 'My Business';
     const { data, error } = await supabase.from('clients').insert([{
       user_id: userId,
@@ -112,6 +109,26 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  // NEW: Google OAuth Function
+  const handleGoogleLogin = async () => {
+    setError(null);
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+  };
+
   const handleFacebookLogin = async () => {
     setError(null);
     setLoading(true);
@@ -146,14 +163,12 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-zinc-950 text-white selection:bg-orange-500/30 relative overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-200px] left-[-200px] w-[800px] h-[800px] bg-orange-500/[0.12] blur-[120px] rounded-full" />
         <div className="absolute bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-blue-500/[0.08] blur-[120px] rounded-full" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
       </div>
 
-      {/* LEFT - Brand Panel (desktop) */}
       <div className="hidden lg:flex w-[48%] relative z-10 flex-col justify-between p-12 border-r border-white/[0.06] bg-white/[0.01]">
         <div>
           <Link href="/" className="flex items-center gap-3">
@@ -198,10 +213,8 @@ export default function LoginPage() {
         <div className="text-xs text-zinc-600">© {new Date().getFullYear()} Sun City Connect • Built in El Paso, TX</div>
       </div>
 
-      {/* RIGHT - Form */}
       <div className="flex-1 flex items-center justify-center p-6 relative z-10">
         <div className="w-full max-w-[420px] space-y-6">
-          {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center text-center">
             <Link href="/"><img src="/assets/SCC_logo.png" alt="SCC" className="h-14 w-auto mb-4" /></Link>
             <h2 className="text-2xl font-black tracking-tight">{isSignUp ? 'Create your command center' : 'Welcome back'}</h2>
@@ -215,6 +228,23 @@ export default function LoginPage() {
 
           <Card className="bg-zinc-900/60 backdrop-blur-2xl border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.6)]">
             <CardContent className="p-7">
+              
+              {/* NEW: Google Button */}
+              <Button 
+                type="button" 
+                onClick={handleGoogleLogin}
+                disabled={loading}
+                className="w-full bg-white hover:bg-zinc-200 text-black font-bold h-11 rounded-full mb-3"
+              >
+                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Continue with Google
+              </Button>
+
               <Button 
                 type="button" 
                 onClick={handleFacebookLogin}
@@ -292,7 +322,7 @@ export default function LoginPage() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-white text-black hover:bg-zinc-200 font-bold h-11 rounded-full"
+                  className="w-full bg-zinc-800 text-white hover:bg-zinc-700 border border-white/10 font-bold h-11 rounded-full"
                   disabled={loading}
                 >
                   {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>{isSignUp ? "Create Account" : "Sign In"} <ArrowRight className="w-4 h-4 ml-2" /></>}
