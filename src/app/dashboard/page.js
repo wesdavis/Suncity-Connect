@@ -504,11 +504,11 @@ export default function PremiumLeadDashboard() {
                                     </p>
                                   </div>
 
-                                  <div className="text-right shrink-0 bg-orange-500/10 border border-orange-500/20 p-2.5 rounded-xl text-orange-400">
-                                    <div className="text-xs uppercase font-black tracking-wider">{dateObj.toLocaleString([], { weekday: 'short' })}</div>
-                                    <div className="text-lg font-black tracking-tighter leading-none my-0.5">{dateObj.toLocaleString([], { day: 'numeric' })}</div>
-                                    <div className="text-[10px] font-bold font-mono">{dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-                                  </div>
+                                  <div className="text-center shrink-0 bg-orange-500/10 border border-orange-500/20 p-3 rounded-xl text-orange-400 min-w-[75px] shadow-inner">
+  <div className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-0.5">{dateObj.toLocaleString([], { weekday: 'short' })}</div>
+  <div className="text-xl font-black tracking-tighter leading-none my-1">{dateObj.toLocaleString([], { month: 'short', day: 'numeric' }).toUpperCase()}</div>
+  <div className="text-[10px] font-bold font-mono bg-orange-500/20 py-0.5 px-1.5 rounded mt-1">{dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+</div>
                                 </div>
 
                                 {!isCancelled && (
