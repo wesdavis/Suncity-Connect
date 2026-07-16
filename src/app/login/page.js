@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Lock, Mail, ArrowRight, Loader2 } from 'lucide-react'; // <-- Facebook is GONE from here
+import { Lock, Mail, ArrowRight, Loader2, ShieldCheck, Zap, CheckCircle2, AlertCircle, Eye, EyeOff, Building2 } from 'lucide-react';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,43 +17,96 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isSignUp, setIsSignUp] = useState(false); // NEW: Tracks if they are creating an account
+  const [message, setMessage] = useState(null);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
   const router = useRouter();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.push('/dashboard');
+    });
+  }, [router]);
+
+  const ensureClientRow = async (userId, email) => {
+    // Check if client already exists
+    const { data: existing } = await supabase.from('clients').select('id, business_name').eq('user_id', userId).maybeSingle();
+    if (existing) return existing;
+
+    // Create with safe defaults that satisfy NOT NULL constraints
+    const businessName = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').trim() || 'My Business';
+    const { data, error } = await supabase.from('clients').insert([{
+      user_id: userId,
+      business_name: businessName,
+      custom_prompt: 'You are a friendly, professional AI receptionist for this business. Be concise and helpful.',
+      is_active: true,
+      is_bot_active: false, 
+      is_subscribed: false,
+      industry: 'local',
+      timezone: 'America/Denver'
+    }]).select().single();
+
+    if (error) {
+      console.error('Client creation error:', error);
+    }
+    return data;
+  };
 
   const handleEmailAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setMessage(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || password.length < 6) {
+      setError('Please enter a valid email and password (6+ characters).');
+      setLoading(false);
+      return;
+    }
 
     if (isSignUp) {
-      // Create a brand new account
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: cleanEmail,
         password,
+        options: { emailRedirectTo: `${window.location.origin}/dashboard` }
       });
 
       if (error) {
         setError(error.message);
-      } else {
-        // Automatically create a blank row in the 'clients' table for them
-        if (data.user) {
-          await supabase.from('clients').insert([{ user_id: data.user.id }]);
+      } else if (data.user) {
+        if (data.session) {
+          await ensureClientRow(data.user.id, cleanEmail);
+          router.push('/dashboard');
+        } else {
+          await ensureClientRow(data.user.id, cleanEmail);
+          setMessage('Check your email! We sent a confirmation link to ' + cleanEmail);
         }
-        router.push('/dashboard');
       }
     } else {
-      // Log into an existing account
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: cleanEmail,
         password,
       });
 
       if (error) {
-        setError(error.message);
-      } else {
-        router.push('/dashboard');
+        if (error.message.includes('Invalid login')) {
+          setError('Invalid email or password. Try again or reset your password.');
+        } else {
+          setError(error.message);
+        }
+      } else if (data.user) {
+        await ensureClientRow(data.user.id, cleanEmail);
+        const { data: client } = await supabase.from('clients').select('business_name, logo_url').eq('user_id', data.user.id).single();
+        if (!client?.logo_url || client?.business_name?.includes("'s Business")) {
+          router.push('/dashboard/onboarding'); 
+        } else {
+          router.push('/dashboard');
+        }
       }
     }
     setLoading(false);
@@ -60,125 +114,211 @@ export default function LoginPage() {
 
   const handleFacebookLogin = async () => {
     setError(null);
+    setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: {
         redirectTo: `${window.location.origin}/dashboard`,
-        // NEW: Tell Meta to explicitly ask for these permissions in the popup!
-        scopes: 'pages_show_list, pages_messaging, pages_read_engagement, pages_manage_engagement' 
+        scopes: 'pages_show_list, pages_messaging, pages_read_engagement, pages_manage_engagement, business_management'
       }
     });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
+  };
 
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Enter your email first to reset password.');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
     if (error) setError(error.message);
+    else setMessage(`Password reset link sent to ${email}. Check your inbox.`);
+    setLoading(false);
+    setShowForgot(false);
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-4 bg-zinc-950 bg-fixed bg-cover bg-center selection:bg-orange-500/30 dark"
-      style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}
-    >
-      <div className="w-full max-w-md space-y-8 relative z-10">
-        
-        <div className="flex flex-col items-center text-center">
-          <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-20 w-auto drop-shadow-2xl mb-6" />
-          <h2 className="text-3xl font-black text-white tracking-tight">Welcome Back</h2>
-          <p className="text-zinc-400 mt-2 font-medium">Sign in to access your pipeline intelligence.</p>
+    <div className="min-h-screen flex bg-zinc-950 text-white selection:bg-orange-500/30 relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-[-200px] left-[-200px] w-[800px] h-[800px] bg-orange-500/[0.12] blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-200px] right-[-200px] w-[600px] h-[600px] bg-blue-500/[0.08] blur-[120px] rounded-full" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:48px_48px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
+      </div>
+
+      {/* LEFT - Brand Panel (desktop) */}
+      <div className="hidden lg:flex w-[48%] relative z-10 flex-col justify-between p-12 border-r border-white/[0.06] bg-white/[0.01]">
+        <div>
+          <Link href="/" className="flex items-center gap-3">
+            <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-9 w-auto" />
+            <span className="font-black tracking-tight text-lg">SUN CITY CONNECT</span>
+          </Link>
         </div>
 
-        <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)]">
-          <CardHeader>
-            <CardTitle className="text-xl text-white flex items-center gap-2">
-              <Lock className="w-5 h-5 text-orange-500" /> Secure Login
-            </CardTitle>
-            <CardDescription className="text-zinc-400">
-              Enter your admin credentials to continue.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            
-            <Button 
-              type="button" 
-              onClick={handleFacebookLogin}
-              className="w-full bg-[#1877F2] hover:bg-[#1877F2]/90 text-white font-bold h-11 mb-6 transition-all"
-            >
-              {/* RAW SVG BYPASS - VERCEL CANNOT CRASH ON THIS */}
-              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path fillRule="evenodd" d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" clipRule="evenodd" />
-              </svg>
-              Continue with Facebook
-            </Button>
-
-            <div className="relative mb-6">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-white/10" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-zinc-950 px-2 text-zinc-500">Or continue with email</span>
-              </div>
+        <div className="space-y-8">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold mb-6">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> LIVE: 27 appointments booked today in El Paso
             </div>
+            <h1 className="text-5xl font-black tracking-[-0.04em] leading-[0.9] mb-6">
+              Your pipeline,<br />
+              <span className="text-zinc-500">on autopilot.</span>
+            </h1>
+            <p className="text-zinc-400 text-lg max-w-md leading-relaxed">
+              Log in to see every DM, lead, and booking captured by your AI receptionist in one command center.
+            </p>
+          </div>
 
-            <form onSubmit={handleEmailAuth} className="space-y-6">
-              <div className="space-y-2">
-                <Label className="text-zinc-300">Email Address</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-500" />
-                  <Input 
-                    type="email" 
-                    placeholder="name@business.com" 
-                    className="pl-10 bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+          <div className="space-y-4 max-w-sm">
+            {[
+              { icon: Zap, title: "Instant inbox", desc: "All IG + FB DMs unified with AI replies" },
+              { icon: Building2, title: "Lead intelligence", desc: "Phone, email, intent auto-extracted" },
+              { icon: ShieldCheck, title: "Secure by default", desc: "SOC2-ready auth via Supabase" },
+            ].map(item => (
+              <div key={item.title} className="flex gap-3">
+                <div className="w-9 h-9 rounded-lg bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0"><item.icon className="w-4 h-4 text-zinc-300" /></div>
+                <div><div className="text-sm font-semibold text-white">{item.title}</div><div className="text-xs text-zinc-500">{item.desc}</div></div>
               </div>
+            ))}
+          </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-zinc-300">Password</Label>
-                  {!isSignUp && (
-                    <a href="#" className="text-xs text-orange-500 hover:text-orange-400 font-medium">Forgot password?</a>
-                  )}
-                </div>
-                <Input 
-                  type="password" 
-                  placeholder="••••••••"
-                  className="bg-zinc-900/50 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-4 flex gap-3">
+            <img src="https://i.pravatar.cc/100?img=32" className="w-10 h-10 rounded-full" alt="client" />
+            <div><div className="text-[13px] font-medium leading-tight">"We stopped missing DMs. 9 extra bookings last week alone without hiring."</div><div className="text-xs text-zinc-500 mt-1">— Local owner, El Paso</div></div>
+          </div>
+        </div>
 
-              {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400 text-center font-medium">
-                  {error}
-                </div>
-              )}
+        <div className="text-xs text-zinc-600">© {new Date().getFullYear()} Sun City Connect • Built in El Paso, TX</div>
+      </div>
 
+      {/* RIGHT - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 relative z-10">
+        <div className="w-full max-w-[420px] space-y-6">
+          {/* Mobile logo */}
+          <div className="lg:hidden flex flex-col items-center text-center">
+            <Link href="/"><img src="/assets/SCC_logo.png" alt="SCC" className="h-14 w-auto mb-4" /></Link>
+            <h2 className="text-2xl font-black tracking-tight">{isSignUp ? 'Create your command center' : 'Welcome back'}</h2>
+            <p className="text-zinc-500 text-sm mt-1">{isSignUp ? 'Start capturing El Paso leads tonight.' : 'Sign in to your pipeline.'}</p>
+          </div>
+
+          <div className="hidden lg:block">
+            <h2 className="text-3xl font-black tracking-tight">{isSignUp ? 'Create account' : 'Welcome back'}</h2>
+            <p className="text-zinc-500 mt-2 text-[14px]">{isSignUp ? 'Get your smart storefront live in 48 hours.' : 'Enter your credentials to access your dashboard.'}</p>
+          </div>
+
+          <Card className="bg-zinc-900/60 backdrop-blur-2xl border-white/10 shadow-[0_0_80px_rgba(0,0,0,0.6)]">
+            <CardContent className="p-7">
               <Button 
-                type="submit" 
-                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-11 transition-all"
+                type="button" 
+                onClick={handleFacebookLogin}
                 disabled={loading}
+                className="w-full bg-[#1877F2] hover:bg-[#166FE5] text-white font-bold h-11 rounded-full"
               >
-                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>
-                  {isSignUp ? "Create Account" : "Sign In"} <ArrowRight className="w-4 h-4 ml-2" />
-                </>}
+                <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>
+                Continue with Facebook
               </Button>
 
-              {/* The Toggle Link */}
-              <div className="text-center mt-4">
-                <button 
-                  type="button" 
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  className="text-sm text-zinc-400 hover:text-white transition-colors"
-                >
-                  {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-                </button>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div>
+                <div className="relative flex justify-center text-[11px] uppercase tracking-widest"><span className="bg-zinc-900 px-3 text-zinc-500">Or with email</span></div>
               </div>
-            </form>
-          </CardContent>
-        </Card>
+
+              <form onSubmit={handleEmailAuth} className="space-y-5">
+                <div className="space-y-2">
+                  <Label className="text-zinc-300 text-[13px]">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-[13px] h-4 w-4 text-zinc-500" />
+                    <Input 
+                      type="email" 
+                      placeholder="you@business.com" 
+                      className="pl-11 h-11 bg-black/40 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50 rounded-full"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-zinc-300 text-[13px]">Password</Label>
+                    {!isSignUp && (
+                      <button type="button" onClick={() => setShowForgot(!showForgot)} className="text-xs text-zinc-400 hover:text-white">
+                        Forgot?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-[13px] h-4 w-4 text-zinc-500" />
+                    <Input 
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      className="pl-11 pr-11 h-11 bg-black/40 border-white/10 text-white placeholder:text-zinc-600 focus-visible:ring-orange-500/50 rounded-full"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-[10px] p-1 text-zinc-500 hover:text-zinc-300">
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {isSignUp && <p className="text-[11px] text-zinc-500">Min 6 characters. You’ll confirm email if required.</p>}
+                </div>
+
+                {showForgot && (
+                  <div className="p-3 rounded-xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-between gap-3">
+                    <span className="text-xs text-orange-200">Reset link will go to email above</span>
+                    <Button type="button" size="sm" onClick={handleForgotPassword} disabled={loading} className="bg-orange-500 hover:bg-orange-600 text-white rounded-full h-8 text-xs">Send reset</Button>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[13px] text-red-300 flex gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> <span>{error}</span>
+                  </div>
+                )}
+                {message && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[13px] text-emerald-300 flex gap-2">
+                    <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" /> <span>{message}</span>
+                  </div>
+                )}
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-white text-black hover:bg-zinc-200 font-bold h-11 rounded-full"
+                  disabled={loading}
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <>{isSignUp ? "Create Account" : "Sign In"} <ArrowRight className="w-4 h-4 ml-2" /></>}
+                </Button>
+
+                <div className="text-center pt-2">
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsSignUp(!isSignUp); setError(null); setMessage(null); }}
+                    className="text-[13px] text-zinc-400 hover:text-white"
+                  >
+                    {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Create one"}
+                  </button>
+                </div>
+
+                {isSignUp && <p className="text-[11px] text-zinc-600 text-center leading-tight">By creating an account, you agree to our Terms & Privacy. No spam, ever.</p>}
+              </form>
+            </CardContent>
+          </Card>
+
+          <div className="flex items-center justify-center gap-4 text-[11px] text-zinc-600">
+            <Link href="/" className="hover:text-zinc-400">← Back to site</Link>
+            <span className="w-1 h-1 bg-white/10 rounded-full" />
+            <a href="mailto:support@suncityconnect.com" className="hover:text-zinc-400">Need help?</a>
+          </div>
+        </div>
       </div>
     </div>
   );
