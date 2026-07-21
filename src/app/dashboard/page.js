@@ -31,6 +31,7 @@ export default function PremiumLeadDashboard() {
   const [isBotActive, setIsBotActive] = useState(true);   
   const [clientDomain, setClientDomain] = useState('');   
   const [activeTab, setActiveTab] = useState('leads'); // 'leads' or 'calendar'
+  const [showWelcome, setShowWelcome] = useState(false);
   const router = useRouter();   
 
   const handleLogout = async () => {     
@@ -122,6 +123,16 @@ export default function PremiumLeadDashboard() {
         .order('appointment_time', { ascending: true });
       if (apptsData) setAppointments(apptsData);
 
+
+      // Catch the Stripe success redirect
+      if (window.location.search.includes('success=true')) {
+          setShowWelcome(true);
+          // Silently clean the URL so the popup doesn't keep showing if they refresh the page
+          window.history.replaceState(null, '', '/dashboard');
+  }
+
+      
+
       setLoading(false);     
     }          
     checkAuthAndFetchData();   
@@ -169,6 +180,38 @@ export default function PremiumLeadDashboard() {
             </div>     
           </Card>   
         </div>       
+      )}
+      {/* THE POST-PAYMENT WELCOME TOUR MODAL */}
+      {showWelcome && (
+          <div className="fixed inset-0 z-[100] bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-500">
+              <Card className="max-w-lg w-full bg-zinc-900 border-orange-500/50 shadow-[0_0_80px_rgba(249,115,22,0.3)] p-8 text-center relative overflow-hidden">
+                  <div className="absolute top-[-100px] left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-orange-500/20 blur-[80px] rounded-full pointer-events-none" />
+                  
+                  <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl relative z-10">
+                      <Sparkles className="w-10 h-10 text-white animate-pulse" />
+                  </div>
+                  
+                  <h2 className="text-3xl font-black text-white tracking-tight mb-3 relative z-10">Welcome to the inside.</h2>
+                  <p className="text-zinc-400 text-sm leading-relaxed mb-8 relative z-10">
+                      Your subscription is active and your AI is officially online. Here is how to get the most out of your new command center:
+                  </p>
+                  
+                  <div className="space-y-4 text-left mb-8 relative z-10">
+                      <div className="flex gap-4 items-start bg-zinc-950/50 p-4 rounded-xl border border-white/5">
+                          <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center shrink-0 mt-0.5"><BrainCircuit className="w-4 h-4 text-purple-400" /></div>
+                          <div><div className="text-white font-bold text-sm">1. Train the Brain</div><div className="text-xs text-zinc-500 mt-1">Upload your menus, pricing, and rules so the AI knows how to sell your services.</div></div>
+                      </div>
+                      <div className="flex gap-4 items-start bg-zinc-950/50 p-4 rounded-xl border border-white/5">
+                          <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center shrink-0 mt-0.5"><Globe className="w-4 h-4 text-green-400" /></div>
+                          <div><div className="text-white font-bold text-sm">2. Check Your Storefront</div><div className="text-xs text-zinc-500 mt-1">Your custom booking link is live. Add it to your Instagram bio immediately.</div></div>
+                      </div>
+                  </div>
+                  
+                  <Button onClick={() => setShowWelcome(false)} className="w-full h-12 bg-white text-black hover:bg-zinc-200 font-bold text-base rounded-xl transition-all relative z-10">
+                      Let's Go <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+              </Card>
+          </div>
       )}
 
       <div className="dark min-h-screen p-4 md:p-8 pt-8 md:pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}>         
