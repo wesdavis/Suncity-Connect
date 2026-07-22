@@ -16,7 +16,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);   
   const [saving, setSaving] = useState(false);   
   const [showToast, setShowToast] = useState(false); // NEW: Toast State
-  const [clientId, setClientId] = useState(null);   
+  const [clientId, setClientId] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+     
   
   // Form State   
   const [primaryColor, setPrimaryColor] = useState('#ea580c');   
@@ -57,7 +59,45 @@ export default function SettingsPage() {
       setLoading(false);     
     }     
     fetchSettings();   
-  }, []);   
+  }, []);
+  
+  const handleLogoUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  // Enforce a 2MB limit to save your storage costs
+  if (file.size > 2 * 1024 * 1024) {
+    alert("Please keep logo images under 2MB.");
+    return;
+  }
+
+  setUploadingLogo(true);
+  try {
+    // Generate a unique file name to prevent overwriting
+    const fileExt = file.name.split('.').pop();
+    const fileName = `logo_${clientId}_${Date.now()}.${fileExt}`;
+
+    // Upload to your Supabase Storage bucket
+    const { data, error } = await supabase.storage
+      .from('brand_assets') // Ensure this bucket exists in your Supabase dashboard!
+      .upload(fileName, file, { upsert: true });
+
+    if (error) throw error;
+
+    // Retrieve the public URL and update the UI
+    const { data: publicUrlData } = supabase.storage
+      .from('brand_assets')
+      .getPublicUrl(fileName);
+
+    setLogoUrl(publicUrlData.publicUrl);
+    
+  } catch (error) {
+    console.error("Logo upload failed:", error);
+    alert("Upload failed. Please try again.");
+  } finally {
+    setUploadingLogo(false);
+  }
+};
 
   const handleSave = async () => {     
     setSaving(true);     
@@ -126,45 +166,30 @@ export default function SettingsPage() {
         ) : (           
           <div className="space-y-8">                          
             
-            {/* Branding Card */}             
-            <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl">               
-              <CardHeader>                 
-                <CardTitle className="text-xl text-white flex items-center gap-2">                   
-                  <Palette className="w-5 h-5 text-purple-400" /> Brand Identity                 
-                </CardTitle>                 
-                <CardDescription className="text-zinc-400">Manage how your storefront looks to visitors.</CardDescription>               
-              </CardHeader>               
-              <CardContent className="space-y-6">                                  
-                <div className="space-y-2">                   
-                  <Label className="text-zinc-300 flex items-center gap-2">                     
-                    <Camera className="w-4 h-4 text-orange-500"/> Logo Image URL                   
-                  </Label>                   
-                  <Input                      
-                    placeholder="https://yourwebsite.com/logo.png"                      
-                    className="bg-zinc-900/50 border-white/10 text-white"                     
-                    value={logoUrl}                     
-                    onChange={(e) => setLogoUrl(e.target.value)}                   
-                  />                   
-                  <p className="text-xs text-zinc-500 mt-1">Paste a direct link to your logo image (PNG or JPG).</p>                 
-                </div>                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">                   
-                  <div className="space-y-2">                     
-                    <Label className="text-zinc-300">Primary Brand Color</Label>                     
-                    <div className="flex items-center gap-3">                       
-                      <input type="color" className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />                       
-                      <Input className="bg-zinc-900/50 border-white/10 text-white uppercase" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} />                     
-                    </div>                   
-                  </div>                   
-                  <div className="space-y-2">                     
-                    <Label className="text-zinc-300">Secondary Brand Color</Label>                     
-                    <div className="flex items-center gap-3">                       
-                      <input type="color" className="h-10 w-12 rounded bg-zinc-950 border border-white/10 cursor-pointer" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} />                       
-                      <Input className="bg-zinc-900/50 border-white/10 text-white uppercase" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} />                     
-                    </div>                   
-                  </div>                 
-                </div>               
-              </CardContent>             
-            </Card>             
+            <div className="space-y-2">
+    <Label className="text-zinc-300 flex items-center gap-2">
+        <Camera className="w-4 h-4 text-orange-500"/> Upload Logo Image
+    </Label>
+    
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        {logoUrl && (
+            <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                <img src={logoUrl} alt="Logo Preview" className="w-full h-full object-cover" />
+            </div>
+        )}
+        <div className="flex-1">
+            <input
+                type="file"
+                accept="image/png, image/jpeg, image/webp"
+                disabled={uploadingLogo}
+                className="text-sm text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-zinc-800 file:text-white hover:file:bg-zinc-700 file:cursor-pointer cursor-pointer w-full bg-zinc-900/30 p-2 rounded-xl border border-white/5 transition-all focus:outline-none"
+                onChange={handleLogoUpload}
+            />
+            {uploadingLogo && <p className="text-xs text-orange-500 mt-2 animate-pulse">Uploading to server...</p>}
+            {!uploadingLogo && <p className="text-xs text-zinc-500 mt-2">Upload a PNG, JPG, or WEBP (Max 2MB).</p>}
+        </div>
+    </div>
+</div>      
 
             {/* Booking & Calendar Settings Card */}
             <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl">
