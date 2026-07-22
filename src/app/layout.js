@@ -1,12 +1,12 @@
-import { Outfit } from "next/font/google";
-import "./globals.css";
+import './globals.css'
+// 1. Import Space Grotesk instead of Inter
+import { Space_Grotesk } from 'next/font/google'
 
-// Import the premium Outfit font and map it correctly to Tailwind's --font-sans
-const outfit = Outfit({
-  variable: "--font-sans", 
-  subsets: ["latin"],
-});
-
+// 2. Configure it
+const spaceGrotesk = Space_Grotesk({ 
+  subsets: ['latin'],
+  variable: '--font-sans', // This hooks it directly into Tailwind's "font-sans" class
+})
 export const metadata = {
   title: "Sun City Connect | AI Sales Automation",
   description: "We build 24/7 custom AI sales assistants for local businesses. Stop typing. Start closing.",
@@ -30,12 +30,11 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html
-      lang="en"
-      className={`${outfit.variable} h-full antialiased`}
-    >
-      {/* Forcing font-sans here ensures the entire app inherits the new font */}
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+    // 3. Apply the variable to the HTML body
+    <html lang="en" className="dark">
+      <body className={`${spaceGrotesk.variable} font-sans antialiased`}>
+        {children}
+      </body>
     </html>
-  );
+  )
 }

@@ -64,7 +64,7 @@ export default function SplashPage() {
             </h1>
 
             <p className="text-[17px] md:text-[19px] text-zinc-400 leading-relaxed max-w-xl mb-8">
-              Sun City Connect deploys a custom digital storefront, an AI DM closer that answers questions and schedules appointments 24/7, and an AI marketing suite that creates your social ad content automatically.
+              Sun City Connect deploys a custom digital storefront, an AI DM agent that answers questions and schedules appointments 24/7, and an AI marketing suite that creates your social ad content automatically.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -85,7 +85,7 @@ export default function SplashPage() {
                 <ShieldCheck className="w-4 h-4 text-zinc-400" /> No long-term contracts
               </div>
               <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-zinc-400" /> Live in 48 hours
+                <Clock className="w-4 h-4 text-zinc-400" /> Live in 24 hours
               </div>
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-zinc-400" /> Tailored for El Paso
@@ -111,7 +111,7 @@ export default function SplashPage() {
                 <div className="space-y-3">
                   <div className="bg-zinc-800 text-zinc-300 text-[12px] p-3 rounded-2xl rounded-tl-sm max-w-[85%]">Hi! Do you cater weddings for 100 people in El Paso?</div>
                   <div className="bg-orange-500 text-white text-[12px] p-3 rounded-2xl rounded-tr-sm max-w-[85%] ml-auto">Yes! Our catering packages start at $18/person. Can I shoot our full menu PDF over to your email?</div>
-                  <div className="bg-zinc-800 text-zinc-300 text-[12px] p-3 rounded-2xl rounded-tl-sm max-w-[85%]">Awesome! Send it to wes@test.com please.</div>
+                  <div className="bg-zinc-800 text-zinc-300 text-[12px] p-3 rounded-2xl rounded-tl-sm max-w-[85%]">Awesome! Send it to wes@suncityconnect.com please.</div>
                   <div className="bg-orange-500 text-white text-[12px] p-3 rounded-2xl rounded-tr-sm max-w-[85%] ml-auto flex items-center gap-2"><CheckCircle2 className="w-4 h-4 shrink-0" /> Menu emailed! Want to lock in a tasting call on our calendar?</div>
                 </div>
                 <div className="mt-4 bg-black/50 border border-white/5 rounded-xl p-2.5 flex items-center justify-between">
@@ -135,7 +135,7 @@ export default function SplashPage() {
 
         {/* Trust strip */}
         <div className="border-y border-white/[0.06] bg-white/[0.02] backdrop-blur">
-          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-6 overflow-x-auto">
+          <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-6 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             <span className="text-[11px] uppercase tracking-widest text-zinc-500 font-bold shrink-0">Built for local industries</span>
             <div className="flex items-center gap-8 text-sm text-zinc-400 font-medium shrink-0">
               <span>Restaurants & Catering</span><span className="w-1 h-1 bg-white/10 rounded-full" /><span>Contractors & Trades</span><span className="w-1 h-1 bg-white/10 rounded-full" /><span>Barbershops & Salons</span><span className="w-1 h-1 bg-white/10 rounded-full" /><span>Gyms & Fitness</span><span className="w-1 h-1 bg-white/10 rounded-full" /><span>Medical & MedSpas</span><span className="w-1 h-1 bg-white/10 rounded-full" /><span>Real Estate</span>
@@ -241,7 +241,7 @@ export default function SplashPage() {
       <section id="how-it-works" className="w-full bg-white/[0.02] border-y border-white/[0.06] py-24 px-6">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-start">
           <div>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6">Live in 48 hours. Zero technical stress.</h2>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6">Live in 24 hours. Zero technical stress.</h2>
             <div className="space-y-8 mt-10">
               {[
                 { n: '01', t: 'Set Up Your Profile', d: 'Complete our 3-step onboarding wizard to customize your colors, business details, and scheduling preferences.' },
@@ -310,7 +310,7 @@ export default function SplashPage() {
                 <div className="text-sm text-orange-300 font-medium mb-1">+$199 One-Time Build & Setup Fee</div>
                 <div className="text-xs text-zinc-500 mb-8">Covers custom branding, PDF setup, & Meta integration</div>
                 <Link href="/login" className="w-full mb-3">
-                  <Button className="w-full h-14 bg-white text-black hover:bg-zinc-200 font-bold text-[15px] rounded-full">Get Started Now — 48hr Setup</Button>
+                  <Button className="w-full h-14 bg-white text-black hover:bg-zinc-200 font-bold text-[15px] rounded-full">Get Started Now — 24hr Setup</Button>
                 </Link>
                 <p className="text-[11px] text-zinc-500">Replaces: Receptionist ($2,800/mo) + Marketing Agency ($1,500/mo)</p>
                 <div className="mt-6 flex items-center justify-center gap-1"><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><span className="text-xs text-zinc-400 ml-2">Trusted by local business owners</span></div>
@@ -323,7 +323,7 @@ export default function SplashPage() {
       {/* Final CTA */}
       <section className="px-6 pb-24">
         <div className="max-w-7xl mx-auto bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2rem] p-10 md:p-16 flex flex-col md:flex-row items-center justify-between gap-8">
-          <div><h2 className="text-3xl md:text-4xl font-black text-white leading-[0.9] mb-3">Ready to automate your<br />El Paso business?</h2><p className="text-white/80">Live in 48 hours. We handle all the setup and technical integration.</p></div>
+          <div><h2 className="text-3xl md:text-4xl font-black text-white leading-[0.9] mb-3">Ready to automate your<br />El Paso business?</h2><p className="text-white/80">Live in 24 hours. We handle all the setup and technical integration.</p></div>
           <Link href="/login"><Button className="h-14 px-8 bg-black text-white hover:bg-zinc-900 rounded-full font-bold text-base">Get Started Today <ArrowRight className="ml-2 w-4 h-4" /></Button></Link>
         </div>
       </section>
