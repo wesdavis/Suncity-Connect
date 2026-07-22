@@ -81,7 +81,7 @@ export default function PremiumLeadDashboard() {
         .from('clients')         
         .select('is_bot_active, is_subscribed, business_name, ig_account_id, logo_url, custom_domain')         
         .eq('user_id', session.user.id)         
-        .single();                
+        .maybeSingle();                
 
       if (fetchedClient) {         
         setClientData(fetchedClient);
