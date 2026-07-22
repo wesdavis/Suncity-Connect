@@ -59,7 +59,7 @@ export default function SplashPage() {
               <span className="text-zinc-500">into booked revenue.</span>
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">
-                On complete autopilot.
+                on complete autopilot.
               </span>
             </h1>
 
@@ -307,12 +307,12 @@ export default function SplashPage() {
               </CardContent>
               <div className="bg-black/50 p-8 md:p-10 flex flex-col justify-center border-t md:border-t-0 md:border-l border-white/10 text-center">
                 <div className="mb-1"><span className="text-6xl font-black text-white tracking-tight">$97</span><span className="text-lg text-zinc-500 font-medium">/mo</span></div>
-                <div className="text-sm text-orange-300 font-medium mb-1">+$199 One-Time Build & Setup Fee</div>
+                <div className="text-sm text-orange-300 font-medium mb-1">+$99 One-Time Build & Setup Fee</div>
                 <div className="text-xs text-zinc-500 mb-8">Covers custom branding, PDF setup, & Meta integration</div>
                 <Link href="/login" className="w-full mb-3">
                   <Button className="w-full h-14 bg-white text-black hover:bg-zinc-200 font-bold text-[15px] rounded-full">Get Started Now — 24hr Setup</Button>
                 </Link>
-                <p className="text-[11px] text-zinc-500">Replaces: Receptionist ($2,800/mo) + Marketing Agency ($1,500/mo)</p>
+                
                 <div className="mt-6 flex items-center justify-center gap-1"><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><Star className="w-3 h-3 fill-orange-400 text-orange-400" /><span className="text-xs text-zinc-400 ml-2">Trusted by local business owners</span></div>
               </div>
             </div>
