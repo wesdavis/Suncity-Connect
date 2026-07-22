@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
     const messageHistory = recentDMs.map(dm => dm.incoming_message).join('\n- ');
 
     // 2. Generate the Ad Copy & Headline (Structured JSON)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
     const prompt = `
       You are an elite growth marketer for a local business in El Paso, TX. 
       Read this list of recent customer direct messages:

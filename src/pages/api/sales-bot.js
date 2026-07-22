@@ -108,7 +108,7 @@ module.exports = async (req, res) => {
 
       // 2. INJECT TOOLS INTO GEMINI
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         tools: salesTools
       });
 
@@ -190,10 +190,11 @@ module.exports = async (req, res) => {
       }
 
       // --- THE ANALYST BRAIN (Data Extraction Bypass) ---
-      // We only run this if a tool WAS NOT used (to save tokens), because the tools already auto-fill the extractedData object.
       if (!functionCalls) {
-        console.log("🔍 Extracting lead intelligence...");
-        const analystModel = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+        console.log("  Extracting lead intelligence...");
+        const analystModel = genAI.getGenerativeModel({ 
+          model: "gemini-3.5-flash-lite" // <-- Upgraded for high-throughput, low-cost JSON parsing
+        });
         const extractionPrompt = `Analyze this Instagram or Facebook DM sent to a local business: "${msg.incoming_message}"
         
         Extract the following information and output ONLY a valid, raw JSON object with these exact keys (no markdown formatting):

@@ -100,7 +100,7 @@ module.exports = async (req, res) => {
       }];
 
       const chatModel = genAI.getGenerativeModel({ 
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         tools: storefrontTools
       });
 
@@ -245,8 +245,10 @@ module.exports = async (req, res) => {
         // Fallback: Gemini just wanted to chat normally
         aiReply = chatResult.response.text().trim();
         
-        console.log("🔍 Extracting lead intelligence...");
-        const analystModel = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+        // 2. THE ANALYST (Handles the repetitive JSON data extraction in the background)
+const analystModel = genAI.getGenerativeModel({ 
+  model: "gemini-3.5-flash-lite" 
+});
 
         const extractionPrompt = `
           Analyze this entire conversation history between a customer and an AI assistant:
