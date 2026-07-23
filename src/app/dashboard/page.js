@@ -88,12 +88,16 @@ export default function PremiumLeadDashboard() {
     if (fetchedClient.is_bot_active !== null) setIsBotActive(fetchedClient.is_bot_active);
     if (fetchedClient.is_subscribed !== null) setIsSubscribed(fetchedClient.is_subscribed);
 
-    const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    setClientDomain(domainSlug);
+    // 1. Check if the business name is missing FIRST!
     if (!fetchedClient.business_name) {
         router.push('/dashboard/onboarding');
         return;
     }
+
+    // 2. NOW it is safe to do the string math since we know it exists
+    const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    setClientDomain(domainSlug);
+    
 } else {
     // FIX: Automatically create a missing client profile row for OAuth users
     const defaultName = session.user.email ? session.user.email.split('@')[0] : 'My Business';
