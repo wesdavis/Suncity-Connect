@@ -286,10 +286,15 @@ export default function PremiumLeadDashboard() {
                         <Library className="w-5 h-5 mr-3 text-blue-400" /> Campaign Vault                       
                       </Button>                     
                     </a>                     
-                    <a href={isSubscribed ? "https://billing.stripe.com/p/login/https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03" : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} target="_blank" rel="noopener noreferrer">                       
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
-                        <CreditCard className="w-5 h-5 mr-3 text-green-400" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"}                       </Button>                     
-                    </a>                     
+                    <a 
+  href={isSubscribed ? "https://billing.stripe.com/p/login/5kQ00c5vC1AkfTc3sw7Vm01" : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
+  target="_blank" 
+  rel="noopener noreferrer"
+>
+  <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+    <CreditCard className="w-5 h-5 mr-3 text-green-400" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"} 
+  </Button>
+</a>                    
                     <div className="pb-6">                       
                       <Button onClick={handleLogout} variant="destructive" className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base">                         
                         <LogOut className="w-5 h-5 mr-3" /> Sign Out                       
