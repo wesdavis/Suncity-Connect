@@ -83,22 +83,33 @@ export default function PremiumLeadDashboard() {
         .eq('user_id', session.user.id)         
         .maybeSingle();                
 
-      if (fetchedClient) {         
-        setClientData(fetchedClient);
-        if (fetchedClient.is_bot_active !== null) setIsBotActive(fetchedClient.is_bot_active);         
-        if (fetchedClient.is_subscribed !== null) setIsSubscribed(fetchedClient.is_subscribed);         
-        
-        const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');         
-        setClientDomain(domainSlug);         
+      if (fetchedClient) {
+    setClientData(fetchedClient);
+    if (fetchedClient.is_bot_active !== null) setIsBotActive(fetchedClient.is_bot_active);
+    if (fetchedClient.is_subscribed !== null) setIsSubscribed(fetchedClient.is_subscribed);
 
-        if (!fetchedClient.business_name) {           
-          router.push('/dashboard/onboarding');           
-          return;         
-        }       
-      } else {         
-        router.push('/dashboard/onboarding');         
-        return;       
-      }       
+    const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    setClientDomain(domainSlug);
+    if (!fetchedClient.business_name) {
+        router.push('/dashboard/onboarding');
+        return;
+    }
+} else {
+    // FIX: Automatically create a missing client profile row for OAuth users
+    const defaultName = session.user.email ? session.user.email.split('@')[0] : 'My Business';
+    await supabase.from('clients').insert([{
+        user_id: session.user.id,
+        business_name: defaultName,
+        custom_prompt: 'You are a friendly, professional AI receptionist for this business.',
+        is_active: true,
+        is_bot_active: false,
+        is_subscribed: false,
+        industry: 'local',
+        timezone: 'America/Denver'
+    }]);
+
+    router.push('/dashboard/onboarding');
+    return;       
 
       // Fetch CRM Leads Stream
       let leadsQuery = supabase         
