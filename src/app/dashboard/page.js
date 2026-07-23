@@ -109,8 +109,8 @@ export default function PremiumLeadDashboard() {
     }]);
 
     router.push('/dashboard/onboarding');
-    return;       
-
+    return;
+}
       // Fetch CRM Leads Stream
       let leadsQuery = supabase         
         .from('b2b_inbox')         
