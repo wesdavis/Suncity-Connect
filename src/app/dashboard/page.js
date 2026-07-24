@@ -147,10 +147,7 @@ export default function PremiumLeadDashboard() {
           window.history.replaceState(null, '', '/dashboard');
       }
 
-      
-
-      
-        channel('dashboard-sync')
+        channel = supabase.channel('dashboard-sync')
         // 1. Listen for new leads dropping into the inbox
         .on(
           'postgres_changes',
