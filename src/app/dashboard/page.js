@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";  
 import { ScrollArea } from "@/components/ui/scroll-area"; 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"; 
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis } from 'recharts'; 
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'; 
 import { useRouter } from 'next/navigation'; 
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL; 
@@ -28,9 +28,9 @@ export default function PremiumLeadDashboard() {
   const [clientData, setClientData] = useState(null);
   const [userId, setUserId] = useState(null);   
   const [isSubscribed, setIsSubscribed] = useState(false);   
-  const [isBotActive, setIsBotActive] = useState(true);   
+  const [isBotActive, setIsBotActive] = useState(false);   
   const [clientDomain, setClientDomain] = useState('');   
-  const [activeTab, setActiveTab] = useState('leads'); // 'leads' or 'calendar'
+  const [activeTab, setActiveTab] = useState('leads'); 
   const [showWelcome, setShowWelcome] = useState(false);
   const router = useRouter();   
 
@@ -40,6 +40,11 @@ export default function PremiumLeadDashboard() {
   };   
 
   const toggleBot = async () => {     
+    if (!isSubscribed) {
+      alert("Please activate your subscription plan to toggle your live AI Sales Bot.");
+      return;
+    }
+
     const newState = !isBotActive;     
     setIsBotActive(newState);          
     const { data: { session } } = await supabase.auth.getSession();     
@@ -66,7 +71,8 @@ export default function PremiumLeadDashboard() {
     }
   };
 
-  useEffect(() => {     
+  useEffect(() => {
+    let channel;     
     async function checkAuthAndFetchData() {       
       const { data: { session } } = await supabase.auth.getSession();              
       if (!session) {         
@@ -76,7 +82,6 @@ export default function PremiumLeadDashboard() {
       setUserProfile(session.user.user_metadata);       
       setUserId(session.user.id);       
 
-      // Pull down complete client branding layer, logo configurations, and settings
       const { data: fetchedClient } = await supabase         
         .from('clients')         
         .select('is_bot_active, is_subscribed, business_name, ig_account_id, logo_url, custom_domain')         
@@ -84,37 +89,35 @@ export default function PremiumLeadDashboard() {
         .maybeSingle();                
 
       if (fetchedClient) {
-    setClientData(fetchedClient);
-    if (fetchedClient.is_bot_active !== null) setIsBotActive(fetchedClient.is_bot_active);
-    if (fetchedClient.is_subscribed !== null) setIsSubscribed(fetchedClient.is_subscribed);
+        setClientData(fetchedClient);
+        if (fetchedClient.is_bot_active !== null) setIsBotActive(fetchedClient.is_bot_active);
+        if (fetchedClient.is_subscribed !== null) setIsSubscribed(fetchedClient.is_subscribed);
 
-    // 1. Check if the business name is missing FIRST!
-    if (!fetchedClient.business_name) {
+        if (!fetchedClient.business_name) {
+            router.push('/dashboard/onboarding');
+            return;
+        }
+
+        const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        setClientDomain(domainSlug);
+        
+      } else {
+        const defaultName = session.user.email ? session.user.email.split('@')[0] : 'My Business';
+        await supabase.from('clients').insert([{
+            user_id: session.user.id,
+            business_name: defaultName,
+            custom_prompt: 'You are a friendly, professional AI receptionist for this business.',
+            is_active: true,
+            is_bot_active: false,
+            is_subscribed: false,
+            industry: 'local',
+            timezone: 'America/Denver'
+        }]);
+
         router.push('/dashboard/onboarding');
         return;
-    }
+      }
 
-    // 2. NOW it is safe to do the string math since we know it exists
-    const domainSlug = fetchedClient.custom_domain || fetchedClient.business_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    setClientDomain(domainSlug);
-    
-} else {
-    // FIX: Automatically create a missing client profile row for OAuth users
-    const defaultName = session.user.email ? session.user.email.split('@')[0] : 'My Business';
-    await supabase.from('clients').insert([{
-        user_id: session.user.id,
-        business_name: defaultName,
-        custom_prompt: 'You are a friendly, professional AI receptionist for this business.',
-        is_active: true,
-        is_bot_active: false,
-        is_subscribed: false,
-        industry: 'local',
-        timezone: 'America/Denver'
-    }]);
-
-    router.push('/dashboard/onboarding');
-    return;
-}
       // Fetch CRM Leads Stream
       let leadsQuery = supabase         
         .from('b2b_inbox')         
@@ -138,23 +141,52 @@ export default function PremiumLeadDashboard() {
         .order('appointment_time', { ascending: true });
       if (apptsData) setAppointments(apptsData);
 
-
-      // Catch the Stripe success redirect
+      // Catch Stripe success redirect
       if (window.location.search.includes('success=true')) {
           setShowWelcome(true);
-          // Silently clean the URL so the popup doesn't keep showing if they refresh the page
           window.history.replaceState(null, '', '/dashboard');
-  }
+      }
 
       
 
-      setLoading(false);     
-    }          
-    checkAuthAndFetchData();   
-  }, [router]);   
+      
+        channel('dashboard-sync')
+        // 1. Listen for new leads dropping into the inbox
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'b2b_inbox' },
+          (payload) => {
+            console.log("New lead caught in real-time!", payload.new);
+            // Instantly push the new lead to the top of the list
+            setLeads((currentLeads) => [payload.new, ...currentLeads]);
+          }
+        )
+        // 2. Listen for the Stripe Webhook updating the client row
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'clients', filter: `user_id=eq.${session.user.id}` },
+          (payload) => {
+            console.log("Client profile updated!", payload.new);
+            if (payload.new.is_subscribed) {
+              setIsSubscribed(true);
+            }
+          }
+        )
+        .subscribe();
+        setLoading(false);
+    }
+
+    checkAuthAndFetchData();
+
+      // Cleanup function to kill the listener if they leave the page
+      return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
+    };
+  }, [router]);  
 
   const hotLeadsCount = leads.filter(l => l.extracted_data?.status === 'Hot').length;   
-  const numbersCaught = leads.filter(l => l.extracted_data?.phone && l.extracted_data.phone !== 'Pending').length;   
   const getInitials = (name) => name ? name.substring(0, 2).toUpperCase() : '??';   
 
   const pipelineData = [     
@@ -173,30 +205,23 @@ export default function PremiumLeadDashboard() {
 
   return (     
     <>           
-      {!loading && !isSubscribed && (   
-        <div className="absolute inset-0 z-50 bg-zinc-950/80 backdrop-blur-xl flex items-center justify-center p-4 transition-all duration-500">     
-          <Card className="max-w-md w-full bg-zinc-900 border-orange-500/40 shadow-[0_0_50px_rgba(249,115,22,0.2)] text-center p-8 text-white">       
-            <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-orange-500/20">         
-              <Lock className="w-8 h-8 text-orange-500 animate-pulse" />       
-            </div>       
-            <h2 className="text-3xl font-black tracking-tight mb-2">Workspace Locked</h2>       
-            <p className="text-zinc-400 text-sm leading-relaxed mb-8">         
-              Your account is verified, but your digital real estate is inactive. Complete your plan registration to unlock your CRM, train your custom AI core, and launch your public storefront.       
-            </p>              
-            <div className="space-y-4">         
-              <a href={`https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} target="_blank" rel="noopener noreferrer" className="block w-full">           
-                <Button className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-black text-base rounded-xl transition-all shadow-lg shadow-orange-500/20">             
-                  Activate Subscription Plan <ArrowRight className="w-5 h-5 ml-2" />           
-                </Button>         
-              </a>                  
-              <Button variant="ghost" onClick={handleLogout} className="w-full text-zinc-500 hover:text-zinc-300 text-xs font-semibold">             
-                Disconnect Account           
-              </Button>       
-            </div>     
-          </Card>   
-        </div>       
+      {/* SOFT PAYWALL: STICKY TOP BANNER FOR UNPAID USERS */}
+      {!loading && !isSubscribed && (
+        <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-600 text-white px-4 py-3 text-center text-sm font-medium sticky top-0 z-50 shadow-xl border-b border-orange-400/30 flex items-center justify-center gap-2 flex-wrap">
+          <Sparkles className="w-4 h-4 text-amber-200 animate-pulse hidden sm:inline" />
+          <span>Your AI is trained and ready! Activate your subscription to publish your live storefront and Meta bots.</span>
+          <a 
+            href={`https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-zinc-100 transition shadow-md ml-2"
+          >
+            Activate Subscription <ArrowRight className="w-3.5 h-3.5 ml-1" />
+          </a>
+        </div>
       )}
-      {/* THE POST-PAYMENT WELCOME TOUR MODAL */}
+
+      {/* POST-PAYMENT WELCOME TOUR MODAL */}
       {showWelcome && (
           <div className="fixed inset-0 z-[100] bg-zinc-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-500">
               <Card className="max-w-lg w-full bg-zinc-900 border-orange-500/50 shadow-[0_0_80px_rgba(249,115,22,0.3)] p-8 text-center relative overflow-hidden">
@@ -241,7 +266,8 @@ export default function PremiumLeadDashboard() {
                   {clientData?.business_name ? `${clientData.business_name}` : "Dashboard"}                 
                 </h1>                 
                 <p className="text-zinc-400 mt-1 text-sm md:text-lg">Real-time pipeline intelligence and AI chat logs.</p>               
-              </div>             </div>             
+              </div>             
+            </div>             
             
             <div className="flex items-center gap-4">                               
               {userProfile && (                 
@@ -277,13 +303,18 @@ export default function PremiumLeadDashboard() {
                     <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/10">                       
                       <div className="flex flex-col">                         
                         <span className="text-white font-bold flex items-center gap-2">                           
-                          <Flame className={`w-4 h-4 ${isBotActive ? 'text-orange-500' : 'text-zinc-500'}`} />                           
+                          <Flame className={`w-4 h-4 ${isBotActive && isSubscribed ? 'text-orange-500' : 'text-zinc-500'}`} />                           
                           AI Sales Bot                         
                         </span>                         
-                        <span className="text-zinc-400 text-xs mt-1">Pause all automated replies.</span>                       
+                        <span className="text-zinc-400 text-xs mt-1">
+                          {isSubscribed ? "Pause or resume automated replies." : "Upgrade to enable automated DMs."}
+                        </span>                       
                       </div>                       
-                      <button onClick={toggleBot} className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive ? 'bg-orange-500' : 'bg-zinc-700'}`}>                         
-                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive ? 'translate-x-6' : 'translate-x-1'}`} />                       
+                      <button 
+                        onClick={toggleBot} 
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive && isSubscribed ? 'bg-orange-500' : 'bg-zinc-700 cursor-not-allowed'}`}
+                      >                         
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive && isSubscribed ? 'translate-x-6' : 'translate-x-1'}`} />                       
                       </button>                     
                     </div>                     
                     <a href="/dashboard/brain">                       
@@ -302,14 +333,14 @@ export default function PremiumLeadDashboard() {
                       </Button>                     
                     </a>                     
                     <a 
-  href={isSubscribed ? "https://billing.stripe.com/p/login/5kQ00c5vC1AkfTc3sw7Vm01" : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
-  target="_blank" 
-  rel="noopener noreferrer"
->
-  <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-    <CreditCard className="w-5 h-5 mr-3 text-green-400" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"} 
-  </Button>
-</a>                    
+                      href={isSubscribed ? "https://billing.stripe.com/p/login/5kQ00c5vC1AkfTc3sw7Vm01" : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                    >
+                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
+                        <CreditCard className="w-5 h-5 mr-3 text-green-400" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"} 
+                      </Button>
+                    </a>                    
                     <div className="pb-6">                       
                       <Button onClick={handleLogout} variant="destructive" className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base">                         
                         <LogOut className="w-5 h-5 mr-3" /> Sign Out                       
@@ -324,20 +355,36 @@ export default function PremiumLeadDashboard() {
           {/* Storefront Control Bar */}           
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-zinc-900/50 border border-white/10 rounded-2xl p-5 mb-6 shadow-lg">             
             <div className="flex items-center gap-4 mb-4 sm:mb-0">               
-              <div className="bg-green-500/10 p-3 rounded-full border border-green-500/20">                 
-                <Globe className="w-6 h-6 text-green-400" />               
+              <div className={`p-3 rounded-full border ${isSubscribed ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>                 
+                <Globe className={`w-6 h-6 ${isSubscribed ? 'text-green-400' : 'text-orange-400'}`} />               
               </div>               
               <div>                 
-                <h3 className="text-white font-black text-lg">Your Website is Live</h3>                 
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-black text-lg">
+                    {isSubscribed ? "Your Website is Live" : "Storefront Preview Ready"}
+                  </h3>
+                  {!isSubscribed && (
+                    <Badge variant="outline" className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] uppercase tracking-wider font-bold">
+                      Inactive
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-zinc-400 text-sm">suncityconnect.com/sites/{clientDomain}</p>               
               </div>             
             </div>                          
             <div className="flex items-center gap-3 w-full sm:w-auto">               
-              <a href={`/sites/${clientDomain}`} target="_blank" rel="noopener noreferrer" className="flex-1 sm:flex-none">                 
-                <Button className="w-full bg-white text-black hover:bg-zinc-200 font-bold shadow-lg shadow-white/10">                   
-                  View Storefront <ArrowRight className="w-4 h-4 ml-2" />                 
-                </Button>               
-              </a>               
+              <Button 
+                onClick={() => {
+                  if (!isSubscribed) {
+                    alert("Please activate your subscription to publish and view your live storefront.");
+                    return;
+                  }
+                  window.open(`/sites/${clientDomain}`, '_blank');
+                }}
+                className={`w-full sm:w-auto font-bold shadow-lg transition-all ${isSubscribed ? 'bg-white text-black hover:bg-zinc-200 shadow-white/10' : 'bg-zinc-800 text-zinc-400 border border-white/10'}`}
+              >                   
+                View Storefront <ArrowRight className="w-4 h-4 ml-2" />                 
+              </Button>               
               <Button variant="outline" onClick={() => router.push('/dashboard/settings')} className="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10">                 
                 <Pen className="w-4 h-4 mr-2" /> Quick Edit               
               </Button>           
@@ -409,7 +456,9 @@ export default function PremiumLeadDashboard() {
                       <div className="flex items-center gap-2 text-white text-sm font-medium">
                         <Globe className="w-4 h-4 text-green-400" /> Website Storefront
                       </div>
-                      <Badge className="bg-green-500/20 text-green-400 border-none">Active</Badge>
+                      <Badge className={isSubscribed ? "bg-green-500/20 text-green-400 border-none" : "bg-orange-500/20 text-orange-400 border-none"}>
+                        {isSubscribed ? "Active" : "Pending"}
+                      </Badge>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/40 border border-white/5 opacity-50">
                       <div className="flex items-center gap-2 text-zinc-400 text-sm font-medium">
@@ -481,12 +530,14 @@ export default function PremiumLeadDashboard() {
                               <TableCell><Skeleton className="h-5 w-20 bg-white/5" /></TableCell>                             
                               <TableCell className="text-right"><Skeleton className="h-6 w-16 bg-white/5 ml-auto" /></TableCell>                           
                             </TableRow>                         
-                          ))                       ) : filteredLeads.length === 0 ? (                         
+                          ))                       
+                        ) : filteredLeads.length === 0 ? (                         
                           <TableRow>                           
                             <TableCell colSpan={5} className="text-center py-10 text-zinc-500">                             
                               No leads found matching "{searchTerm}"                           
                             </TableCell>                         
-                          </TableRow>                       ) : filteredLeads.map((lead, i) => {                         
+                          </TableRow>                       
+                        ) : filteredLeads.map((lead, i) => {                         
                           const data = lead.extracted_data || {};                         
                           return (                           
                             <TableRow                             
@@ -568,10 +619,10 @@ export default function PremiumLeadDashboard() {
                                   </div>
 
                                   <div className="text-center shrink-0 bg-orange-500/10 border border-orange-500/20 p-3 rounded-xl text-orange-400 min-w-[75px] shadow-inner">
-  <div className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-0.5">{dateObj.toLocaleString([], { weekday: 'short' })}</div>
-  <div className="text-xl font-black tracking-tighter leading-none my-1">{dateObj.toLocaleString([], { month: 'short', day: 'numeric' }).toUpperCase()}</div>
-  <div className="text-[10px] font-bold font-mono bg-orange-500/20 py-0.5 px-1.5 rounded mt-1">{dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-</div>
+                                    <div className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-0.5">{dateObj.toLocaleString([], { weekday: 'short' })}</div>
+                                    <div className="text-xl font-black tracking-tighter leading-none my-1">{dateObj.toLocaleString([], { month: 'short', day: 'numeric' }).toUpperCase()}</div>
+                                    <div className="text-[10px] font-bold font-mono bg-orange-500/20 py-0.5 px-1.5 rounded mt-1">{dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                                  </div>
                                 </div>
 
                                 {!isCancelled && (
