@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2, Facebook, Link2 } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -194,7 +194,7 @@ export default function SettingsPage() {
                     <Card className="max-w-md w-full bg-zinc-900 border-white/10 shadow-2xl">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
-                                <Facebook className="w-5 h-5 text-[#1877F2]" /> Select Business Page
+                                <ThumbsUp className="w-5 h-5 text-[#1877F2]" /> Select Business Page
                             </CardTitle>
                             <CardDescription className="text-zinc-400">Choose the Facebook page you want to connect to your AI bot.</CardDescription>
                         </CardHeader>
@@ -261,7 +261,7 @@ export default function SettingsPage() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/5">
                                     <div className="flex flex-col mb-4 sm:mb-0">
                                         <span className="text-white font-bold flex items-center gap-2">
-                                            <Facebook className="w-4 h-4 text-[#1877F2]" />
+                                            <ThumbsUp className="w-4 h-4 text-[#1877F2]" />
                                             Meta Business Suite
                                         </span>
                                         <span className="text-zinc-400 text-sm mt-1">
