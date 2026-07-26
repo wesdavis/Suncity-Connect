@@ -68,7 +68,7 @@ export default function SettingsPage() {
         fetchSettings();
     }, []);
 
-    // NEW: Meta Graph API Fetcher with Instagram Fields attached
+    // Meta Graph API Fetcher with Instagram Fields attached
     const fetchMetaPages = async () => {
         setLoadingPages(true);
         const { data: { session } } = await supabase.auth.getSession();
@@ -96,30 +96,50 @@ export default function SettingsPage() {
         setLoadingPages(false);
     };
 
-    // NEW: Save the specific page and Instagram ID to the database
+    // Save the specific page, Instagram ID, AND Subscribe to Webhooks
     const connectSpecificPage = async (page) => {
         setSaving(true);
         
         // Scoop up the Instagram Professional Account ID if it exists
         const igAccountId = page.instagram_business_account ? page.instagram_business_account.id : null;
 
-        const { error } = await supabase
-            .from('clients')
-            .update({
-                fb_page_id: page.id,
-                meta_access_token: page.access_token,
-                ig_account_id: igAccountId 
-            })
-            .eq('id', clientId);
+        try {
+            // 1. Tell Meta to route this page's messages and comments to your live webhook
+            const webhookRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=${page.access_token}`, {
+                method: 'POST'
+            });
+            const webhookData = await webhookRes.json();
+            
+            if (!webhookData.success) {
+                console.error("Webhook subscription failed:", webhookData);
+                alert("Connected to Meta, but failed to link the live message routing. Please try again.");
+                setSaving(false);
+                return;
+            }
 
-        if (!error) {
-            setFbPageId(page.id);
-            setShowPageModal(false);
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 3000);
-        } else {
-            alert("Failed to save page connection.");
+            // 2. Save everything to Supabase
+            const { error } = await supabase
+                .from('clients')
+                .update({
+                    fb_page_id: page.id,
+                    meta_access_token: page.access_token,
+                    ig_account_id: igAccountId 
+                })
+                .eq('id', clientId);
+
+            if (!error) {
+                setFbPageId(page.id);
+                setShowPageModal(false);
+                setShowToast(true);
+                setTimeout(() => setShowToast(false), 3000);
+            } else {
+                alert("Failed to save page connection to database.");
+            }
+        } catch (err) {
+            console.error("Connection process failed:", err);
+            alert("A network error occurred while connecting the page.");
         }
+        
         setSaving(false);
     };
 
@@ -246,7 +266,7 @@ export default function SettingsPage() {
                 ) : (
                     <div className="space-y-8">
                         
-                        {/* NEW: Meta Integration Card */}
+                        {/* Meta Integration Card */}
                         <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl relative overflow-hidden">
                             <div className="absolute top-0 left-0 w-full h-1 bg-[#1877F2]"></div>
                             <CardHeader>
