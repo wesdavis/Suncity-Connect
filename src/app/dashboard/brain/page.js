@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign, Image as ImageIcon, Info } from 'lucide-react';
+import { Sparkles, BrainCircuit, Save, Loader2, ArrowLeft, ShieldAlert, MessageSquare, Clock, DollarSign, Image as ImageIcon, Info, RefreshCw } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 export default function BotBrain() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [clientId, setClientId] = useState(null);
+
+  // Facebook Connection Tokens
+  const [fbPageId, setFbPageId] = useState(null);
+  const [metaToken, setMetaToken] = useState(null);
 
   // Structured State for the AI Brain
   const [businessName, setBusinessName] = useState('');
@@ -30,26 +35,27 @@ export default function BotBrain() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // Fetch the specific UI columns we just created
+      // Fetch the specific UI columns + Facebook integration tokens
       const { data, error } = await supabase
         .from('clients')
-        .select('id, custom_prompt, business_name, tone, pricing, hours, extra_rules')
+        .select('id, custom_prompt, business_name, tone, pricing, hours, extra_rules, fb_page_id, meta_access_token')
         .eq('user_id', session.user.id)
         .single();
 
       if (data) {
         setClientId(data.id);
+        setFbPageId(data.fb_page_id || null);
+        setMetaToken(data.meta_access_token || null);
+
         setBusinessName(data.business_name || '');
         setTone(data.tone || '');
         setPricing(data.pricing || '');
         setHours(data.hours || '');
         
-        // Smart fallback: If they are a brand new user from onboarding, dump their onboarding text here.
-        // Otherwise, load exactly what is saved in the extra_rules column.
+        // Smart fallback logic
         if (data.extra_rules !== null) {
           setExtraRules(data.extra_rules || '');
         } else if (data.custom_prompt) {
-           // This catches old data from before we did this database upgrade
           setExtraRules(data.custom_prompt);
         }
       }
@@ -57,6 +63,40 @@ export default function BotBrain() {
     }
     fetchBrainData();
   }, []);
+
+  const handleFacebookSync = async () => {
+    if (!fbPageId || !metaToken) {
+      alert("Please connect your Meta Business Suite in Settings first!");
+      return;
+    }
+
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/generate-brain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          pageId: fbPageId, 
+          pageToken: metaToken, 
+          clientId: clientId 
+        })
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.summary) {
+        // Append the synthesized Facebook summary to the Strict Rules / Context box
+        setExtraRules(prev => prev ? prev + '\n\n[FACEBOOK PAGE CONTEXT]:\n' + data.summary : '[FACEBOOK PAGE CONTEXT]:\n' + data.summary);
+        alert("Facebook page data extracted! Review the additions in Strict Rules and click 'Update AI Brain' to deploy.");
+      } else {
+        alert("Failed to sync with Facebook: " + (data.error || "Unknown error"));
+      }
+    } catch (error) {
+      console.error("Facebook sync crashed:", error);
+      alert("A network error occurred while syncing with Facebook.");
+    }
+    setSyncing(false);
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -67,11 +107,11 @@ BUSINESS NAME: ${businessName}
 TONE OF VOICE: ${tone || 'Professional, friendly, and energetic.'}
 HOURS OF OPERATION: ${hours || 'Standard business hours. If closed, tell them we will reply tomorrow.'}
 PRICING & SERVICES: ${pricing || 'Do not quote exact prices. Tell them it depends on the job and push for a demo/consultation.'}
-ADDITIONAL STRICT RULES:
+ADDITIONAL STRICT RULES & CONTEXT:
 ${extraRules}
     `.trim();
 
-    // Save back to the database - Both the UI columns AND the compiled AI Prompt
+    // Save back to the database
     const { error } = await supabase
       .from('clients')
       .update({ 
@@ -86,8 +126,8 @@ ${extraRules}
 
     if (error) {
       console.error("Failed to update brain:", error);
+      alert("Failed to save changes to the database.");
     } else {
-      // Show success briefly
       setTimeout(() => setSaving(false), 800);
     }
   };
@@ -131,9 +171,20 @@ ${extraRules}
             {/* The Form */}
             <div className="lg:col-span-2 space-y-6">
               <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl">
-                <CardHeader>
-                  <CardTitle className="text-xl text-white">Knowledge Base</CardTitle>
-                  <CardDescription className="text-zinc-400">Fill in your business details. The AI will use this memory to answer customer DMs instantly.</CardDescription>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-xl text-white">Knowledge Base</CardTitle>
+                    <CardDescription className="text-zinc-400">Fill in your business details. The AI will use this memory to answer customer DMs instantly.</CardDescription>
+                  </div>
+                  <Button 
+                    type="button"
+                    onClick={handleFacebookSync} 
+                    disabled={syncing}
+                    className="bg-[#1877F2]/10 hover:bg-[#1877F2]/20 text-[#1877F2] border border-[#1877F2]/30 transition-all font-bold shrink-0"
+                  >
+                    {syncing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
+                    {syncing ? "Scraping Data..." : "Auto-Fill via Facebook"}
+                  </Button>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   
@@ -179,16 +230,16 @@ ${extraRules}
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-zinc-300 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-red-400"/> Strict Rules (Advanced)</Label>
+                    <Label className="text-zinc-300 flex items-center gap-2"><ShieldAlert className="w-4 h-4 text-red-400"/> Strict Rules & Additional Context</Label>
                     <textarea 
-                      placeholder="Any hard rules? e.g. 'Never offer a discount. Always push them to book a call using the word DEMO.'"
+                      placeholder="Any hard rules or document context? e.g. 'Never offer a discount. Always push them to book a call using the word DEMO.'"
                       className="flex min-h-[120px] w-full rounded-md border border-white/10 bg-zinc-900/50 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/50"
                       value={extraRules}
                       onChange={(e) => setExtraRules(e.target.value)}
                     />
                   </div>
 
-                  {/* --- NEW: DOCUMENT UPLOAD LAYER --- */}
+                  {/* DOCUMENT UPLOAD LAYER */}
                   <div className="space-y-2 pt-4 border-t border-white/5">
                     
                     <div className="flex items-center gap-2">
@@ -196,11 +247,10 @@ ${extraRules}
                         <ImageIcon className="w-4 h-4 text-purple-400"/> Upload Business Documents (PDF / Text)
                       </Label>
                       
-                      {/* THE TAILWIND HOVER TOOLTIP */}
+                      {/* TOOLTIP */}
                       <div className="group relative flex items-center">
                         <Info className="w-4 h-4 text-zinc-500 hover:text-orange-500 transition-colors cursor-help" />
                         
-                        {/* The Hidden Tooltip Box */}
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 w-64 p-3 bg-zinc-800 border border-white/10 rounded-lg shadow-2xl text-xs text-zinc-300 z-50 pointer-events-none">
                           <strong className="text-orange-400 block mb-1.5 text-[11px] uppercase tracking-wider">Best Practices</strong>
                           <ul className="list-disc pl-4 space-y-1">
@@ -208,7 +258,6 @@ ${extraRules}
                             <li>Keep files under 2MB for fast processing.</li>
                             <li>Menus, price sheets, and company FAQs yield the best results.</li>
                           </ul>
-                          {/* The Little Triangle Arrow at the bottom */}
                           <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-zinc-800" />
                         </div>
                       </div>
@@ -231,7 +280,7 @@ ${extraRules}
                             return;
                           }
 
-                          // 1. If it's a plain text file, read it directly on the client side
+                          // 1. Text Files
                           if (file.type === "text/plain") {
                             const reader = new FileReader();
                             reader.onload = (event) => {
@@ -241,13 +290,12 @@ ${extraRules}
                             return;
                           }
 
-                          // 2. If it's a PDF, turn it into base64 and hit our extraction API
+                          // 2. PDF Files
                           if (file.type === "application/pdf") {
                             const reader = new FileReader();
-                            reader.readAsDataURL(file); // This reads it as a data URL stream
+                            reader.readAsDataURL(file);
                             
                             reader.onload = async () => {
-                              // Strip off the "data:application/pdf;base64," prefix to get the clean string
                               const base64String = reader.result.split(',')[1];
                               
                               try {
@@ -269,8 +317,6 @@ ${extraRules}
 
                                 const data = await res.json();
                                 if (data.success && data.extractedData) {
-                                  // Auto-fill the UI fields!
-                                  // We use 'prev' so it adds to anything they already typed instead of deleting it
                                   if (data.extractedData.pricing) {
                                     setPricing(prev => prev ? prev + '\n\n' + data.extractedData.pricing : data.extractedData.pricing);
                                   }
@@ -311,7 +357,7 @@ ${extraRules}
               </Card>
             </div>
 
-            {/* The Live Preview Panel */}
+            {/* Live Preview Panel */}
             <div className="lg:col-span-1 space-y-6">
                <Card className="bg-zinc-900/50 border-white/10 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-purple-600"></div>
@@ -342,7 +388,7 @@ ${extraRules}
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
                       </span>
-                      Gemini 3.6 Neural Engine Online
+                      Gemini 3.5 Flash Neural Engine Online
                     </div>
                   </div>
                 </CardContent>
