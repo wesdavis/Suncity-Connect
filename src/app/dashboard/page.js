@@ -383,7 +383,7 @@ export default function PremiumLeadDashboard() {
                 View Storefront <ArrowRight className="w-4 h-4 ml-2" />                 
               </Button>               
               <Button variant="outline" onClick={() => router.push('/dashboard/settings')} className="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10">                 
-                <Pen className="w-4 h-4 mr-2" /> Quick Edit               
+                <Pen className="w-4 h-4 mr-2" /> Settings               
               </Button>           
             </div>           
           </div>                      
