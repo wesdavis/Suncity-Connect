@@ -68,7 +68,7 @@ export default function SettingsPage() {
         fetchSettings();
     }, []);
 
-    // Meta Graph API Fetcher with Instagram Fields attached
+    // Upgraded: Meta Graph API Fetcher with Permanent Token Exchange
     const fetchMetaPages = async () => {
         setLoadingPages(true);
         const { data: { session } } = await supabase.auth.getSession();
@@ -80,7 +80,23 @@ export default function SettingsPage() {
         }
 
         try {
-            const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${session.provider_token}`);
+            // 1. Upgrade the token securely via our backend
+            const exchangeRes = await fetch('/api/meta-exchange', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shortToken: session.provider_token })
+            });
+            
+            const exchangeData = await exchangeRes.json();
+            
+            if (!exchangeData.longToken) {
+                alert("Failed to secure a permanent connection token. Check console.");
+                setLoadingPages(false);
+                return;
+            }
+
+            // 2. Fetch the pages using the new LONG-LIVED token (which generates PERMANENT page tokens)
+            const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${exchangeData.longToken}`);
             const data = await res.json();
             
             if (data.data) {
