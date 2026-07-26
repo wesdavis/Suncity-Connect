@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, Palette, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -45,7 +45,6 @@ export default function SettingsPage() {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
             
-            // Added fb_page_id to the fetch query
             const { data, error } = await supabase
                 .from('clients')
                 .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id')
@@ -69,61 +68,60 @@ export default function SettingsPage() {
         fetchSettings();
     }, []);
 
-    // NEW: Meta Graph API Fetcher
-  const fetchMetaPages = async () => {
-      setLoadingPages(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session?.provider_token) {
-          alert("We couldn't find your Facebook token. Please sign out and sign back in with Facebook to refresh your connection.");
-          setLoadingPages(false);
-          return;
-      }
+    // NEW: Meta Graph API Fetcher with Instagram Fields attached
+    const fetchMetaPages = async () => {
+        setLoadingPages(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.provider_token) {
+            alert("We couldn't find your Facebook token. Please sign out and sign back in with Facebook to refresh your connection.");
+            setLoadingPages(false);
+            return;
+        }
 
-      try {
-          // Notice the "?fields=" parameter! This tells Meta to return the IG Account ID alongside the FB Page data.
-          const res = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${session.provider_token}`);
-          const data = await res.json();
-          
-          if (data.data) {
-              setFbPages(data.data);
-              setShowPageModal(true);
-          } else {
-              alert("No pages found or permission denied. Ensure you granted permissions during login.");
-          }
-      } catch (err) {
-          console.error(err);
-          alert("Failed to connect to Meta.");
-      }
-      setLoadingPages(false);
-  };
+        try {
+            const res = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${session.provider_token}`);
+            const data = await res.json();
+            
+            if (data.data) {
+                setFbPages(data.data);
+                setShowPageModal(true);
+            } else {
+                alert("No pages found or permission denied. Ensure you granted permissions during login.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Failed to connect to Meta.");
+        }
+        setLoadingPages(false);
+    };
 
-  // NEW: Save the specific page to the database
-  const connectSpecificPage = async (page) => {
-      setSaving(true);
-      
-      // Pluck the Instagram ID if they have an IG Professional account attached to this Facebook Page
-      const igAccountId = page.instagram_business_account ? page.instagram_business_account.id : null;
+    // NEW: Save the specific page and Instagram ID to the database
+    const connectSpecificPage = async (page) => {
+        setSaving(true);
+        
+        // Scoop up the Instagram Professional Account ID if it exists
+        const igAccountId = page.instagram_business_account ? page.instagram_business_account.id : null;
 
-      const { error } = await supabase
-          .from('clients')
-          .update({
-              fb_page_id: page.id,
-              meta_access_token: page.access_token,
-              ig_account_id: igAccountId // Saving both to the database simultaneously!
-          })
-          .eq('id', clientId);
+        const { error } = await supabase
+            .from('clients')
+            .update({
+                fb_page_id: page.id,
+                meta_access_token: page.access_token,
+                ig_account_id: igAccountId 
+            })
+            .eq('id', clientId);
 
-      if (!error) {
-          setFbPageId(page.id);
-          setShowPageModal(false);
-          setShowToast(true);
-          setTimeout(() => setShowToast(false), 3000);
-      } else {
-          alert("Failed to save page connection.");
-      }
-      setSaving(false);
-  };
+        if (!error) {
+            setFbPageId(page.id);
+            setShowPageModal(false);
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000);
+        } else {
+            alert("Failed to save page connection.");
+        }
+        setSaving(false);
+    };
 
     const handleLogoUpload = async (e) => {
         const file = e.target.files[0];
@@ -253,7 +251,7 @@ export default function SettingsPage() {
                             <div className="absolute top-0 left-0 w-full h-1 bg-[#1877F2]"></div>
                             <CardHeader>
                                 <CardTitle className="text-xl text-white flex items-center gap-2">
-                                    <Link2 className="w-5 h-5 text-[#1877F2]" /> System Integrations
+                                    <ExternalLink className="w-5 h-5 text-[#1877F2]" /> System Integrations
                                 </CardTitle>
                                 <CardDescription className="text-zinc-400">Connect your external platforms to the AI core.</CardDescription>
                             </CardHeader>
