@@ -104,10 +104,7 @@ export default function SettingsPage() {
         const igAccountId = page.instagram_business_account ? page.instagram_business_account.id : null;
 
         try {
-            // 1. Tell Meta to route this page's messages and comments to your live webhook
             const webhookRes = await fetch(`https://graph.facebook.com/v25.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${page.access_token}`, {
-    method: 'POST'
-});
                 method: 'POST'
             });
             const webhookData = await webhookRes.json();
