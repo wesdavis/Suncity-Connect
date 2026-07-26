@@ -80,7 +80,7 @@ export default function SettingsPage() {
         }
 
         try {
-            const res = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${session.provider_token}`);
+            const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${session.provider_token}`);
             const data = await res.json();
             
             if (data.data) {
@@ -105,7 +105,9 @@ export default function SettingsPage() {
 
         try {
             // 1. Tell Meta to route this page's messages and comments to your live webhook
-            const webhookRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,feed&access_token=${page.access_token}`, {
+            const webhookRes = await fetch(`https://graph.facebook.com/v25.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${page.access_token}`, {
+    method: 'POST'
+});
                 method: 'POST'
             });
             const webhookData = await webhookRes.json();
