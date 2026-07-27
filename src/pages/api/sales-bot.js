@@ -183,7 +183,9 @@ module.exports = async (req, res) => {
       const result = await model.generateContent(prompt);
       
       // --- 3. THE INTERCEPTION LOOP (FORTIFIED) ---
-      const functionCalls = result.response.functionCalls;
+      const functionCalls = typeof result.response.functionCalls === 'function' 
+        ? result.response.functionCalls() 
+        : result.response.functionCalls;
 
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
