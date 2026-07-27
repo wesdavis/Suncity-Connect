@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 
+
+
 // Initialize Supabase using the Service Role Key for backend overrides
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -8,6 +10,17 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// Bypass the Next.js 1MB body limit for larger PDF files
+export const config = {
+    api: {
+        bodyParser: {
+            sizeLimit: '10mb', // Increase limit to 10MB
+        },
+    },
+};
+
+
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {

@@ -1,7 +1,7 @@
 'use client'; 
 import { useEffect, useState } from 'react'; 
 import { createClient } from '@supabase/supabase-js'; 
-import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X } from 'lucide-react';
+import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X, Database } from 'lucide-react';
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";  
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; 
@@ -318,7 +318,14 @@ export default function PremiumLeadDashboard() {
                       <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
                         <BrainCircuit className="w-5 h-5 mr-3 text-purple-400" /> Configure AI Brain                       
                       </Button>                     
-                    </a>                     
+                    </a>
+
+                    <a href="/dashboard/inventory">                       
+                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
+                        <Database className="w-5 h-5 mr-3 text-emerald-400" /> Digital Inventory & Menu                      
+                      </Button>                     
+                    </a>
+
                     <a href="/dashboard/marketing">                       
                       <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
                         <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Social Manager                       
