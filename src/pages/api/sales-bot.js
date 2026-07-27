@@ -230,13 +230,17 @@ module.exports = async (req, res) => {
           }
         }
 
-        // NEW: CASHIER EXECUTION
+        // CASHIER EXECUTION
         else if (call.name === "generate_checkout_link") {
-          const { items } = call.args;
+          // SAFEGUARD 1: Fallback to empty array if Gemini formats args wrong
+          const items = call.args?.items || []; 
           console.log(`🛒 AI generating checkout link for ${items.length} items...`);
           
           try {
-            const checkoutRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/checkout-link`, {
+            // SAFEGUARD 2: Fallback to localhost if env var is missing during testing
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+            
+            const checkoutRes = await fetch(`${baseUrl}/api/checkout-link`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -245,7 +249,15 @@ module.exports = async (req, res) => {
               })
             });
             
-            const checkoutData = await checkoutRes.json();
+            // SAFEGUARD 3: Prevent JSON parse crashes if the API returns an HTML 500 page
+            const textRes = await checkoutRes.text();
+            let checkoutData;
+            try {
+                checkoutData = JSON.parse(textRes);
+            } catch (parseError) {
+                console.error("API returned non-JSON:", textRes);
+                throw new Error("Backend API crashed.");
+            }
             
             if (checkoutData.success) {
               aiReply = `Awesome! Your total comes to $${(checkoutData.total).toFixed(2)}. You can securely pay and send your order straight to the kitchen right here: ${checkoutData.url} 🚀`;
@@ -258,6 +270,12 @@ module.exports = async (req, res) => {
             console.error("Checkout link generation failed:", err);
             aiReply = "I'm having trouble connecting to the payment processor right now. Let me get a human to help finalize this!";
           }
+        }
+        
+        // SAFEGUARD 4: Catch hallucinated tool names
+        else {
+          console.log(`⚠️ AI tried to call unknown tool: ${call.name}`);
+          aiReply = "I'm not exactly sure how to do that! Let me get a human to jump in and assist.";
         }
 
       } else {
