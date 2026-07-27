@@ -44,6 +44,18 @@ module.exports = async (req, res) => {
     console.log(`🧠 Loaded brain for: ${client.business_name}`);
     const META_ACCESS_TOKEN = client.meta_access_token; 
 
+    // --- NEW: FETCH THE VERIFIED MENU ---
+    const { data: inventory } = await supabase
+      .from('client_inventory')
+      .select('item_name, price')
+      .eq('client_id', client.id);
+
+    let menuString = "No active menu items available.";
+    if (inventory && inventory.length > 0) {
+      menuString = inventory.map(i => `${i.item_name} - $${i.price.toFixed(2)}`).join('\n');
+    }
+    // ------------------------------------
+
     const matchColumn = msg.meta_sender_id ? 'meta_sender_id' : 'ig_username';
     const matchValue = msg.meta_sender_id || msg.ig_username;
 
@@ -75,38 +87,73 @@ module.exports = async (req, res) => {
       extractedData.status = "Hot";
     } else {
 
-      // --- 1. DEFINE THE TOOLS ---
-      const salesTools = [{
-        functionDeclarations: [
-          {
-            name: "send_sms",
-            description: "Sends a text message directly to the customer's phone.",
-            parameters: {
-              type: "OBJECT",
-              properties: {
-                phone_number: { type: "STRING", description: "The customer's 10-digit phone number with country code (e.g., +15551234567)." },
-                message: { type: "STRING", description: "The text message content to send." }
-              },
-              required: ["phone_number", "message"]
-            }
-          },
-          {
-            name: "send_email",
-            description: "Sends an email to the customer.",
-            parameters: {
-              type: "OBJECT",
-              properties: {
-                customer_email: { type: "STRING", description: "The customer's email address." },
-                subject: { type: "STRING", description: "The email subject line." },
-                email_body: { type: "STRING", description: "The full text content of the email." }
-              },
-              required: ["customer_email", "subject", "email_body"]
-            }
+      // --- 1. DEFINE THE CORE TOOLS ---
+      const functionDeclarations = [
+        {
+          name: "send_sms",
+          description: "Sends a text message directly to the customer's phone.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              phone_number: { type: "STRING", description: "The customer's 10-digit phone number with country code (e.g., +15551234567)." },
+              message: { type: "STRING", description: "The text message content to send." }
+            },
+            required: ["phone_number", "message"]
           }
-        ]
-      }];
+        },
+        {
+          name: "send_email",
+          description: "Sends an email to the customer.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              customer_email: { type: "STRING", description: "The customer's email address." },
+              subject: { type: "STRING", description: "The email subject line." },
+              email_body: { type: "STRING", description: "The full text content of the email." }
+            },
+            required: ["customer_email", "subject", "email_body"]
+          }
+        }
+      ];
 
-      // 2. INJECT TOOLS INTO GEMINI
+      // --- 2. DYNAMIC CASHIER INJECTION ---
+      let dynamicMenuSection = "";
+      let dynamicCashierRule = "";
+      const isRetailClient = inventory && inventory.length > 0;
+
+      if (isRetailClient) {
+        // Give the AI the ability to generate links
+        functionDeclarations.push({
+          name: "generate_checkout_link",
+          description: "Generates a secure payment link. ONLY call this when the customer specifies exact items from the menu and is ready to buy.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              items: {
+                type: "ARRAY",
+                description: "List of items the customer wants to purchase.",
+                items: {
+                  type: "OBJECT",
+                  properties: {
+                    name: { type: "STRING", description: "The exact name of the item from the verified menu." },
+                    quantity: { type: "INTEGER", description: "How many of this item the customer wants." }
+                  },
+                  required: ["name", "quantity"]
+                }
+              }
+            },
+            required: ["items"]
+          }
+        });
+
+        // Add the menu and rules to the prompt
+        dynamicMenuSection = `\n--- VERIFIED MENU & PRICING ---\n${menuString}\n`;
+        dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.`;
+      }
+
+      const salesTools = [{ functionDeclarations }];
+
+      // 3. INJECT TOOLS INTO GEMINI
       const model = genAI.getGenerativeModel({ 
         model: "gemini-3.6-flash",
         tools: salesTools
@@ -116,14 +163,14 @@ module.exports = async (req, res) => {
 
       --- BUSINESS KNOWLEDGE ---
       ${client.custom_prompt}
+      ${dynamicMenuSection}
       
       --- CRITICAL CLOSING RULES ---
       1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
       2. SMS ACTION: If the customer asks for a text or provides a phone number for info, USE the send_sms tool. 
       3. EMAIL ACTION: If the customer asks for an email or provides an email address, USE the send_email tool.
       4. THE DEMO TRIGGER: If the customer's message contains the word "DEMO", immediately reply with: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar here: https://calendar.app.google/rbTHX427Am9dFxhN9" and stop asking questions.
-      5. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. 
-      6. THE ASK: If (and only if) we do not have their contact info yet, casually ask for a phone number or email.
+      5. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. ${dynamicCashierRule}
 
       --- RECENT CONVERSATION (Memory) ---
       ${historyString}
@@ -165,16 +212,15 @@ module.exports = async (req, res) => {
           const { customer_email, subject, email_body } = call.args;
           console.log(`✉️ AI firing Email to: ${customer_email}`);
 
-          // Strip out any accidental quotes from the business name to protect email headers
-  const cleanBusinessName = client.business_name.replace(/['"]/g, '');
+          const cleanBusinessName = client.business_name.replace(/['"]/g, '');
 
           try {
-    await resend.emails.send({
-      from: `${cleanBusinessName} Ai Assistant <AiAssistant@suncityconnect.com>`,
-      to: customer_email,
-      subject: subject,
-      text: email_body
-    });
+            await resend.emails.send({
+              from: `${cleanBusinessName} Ai Assistant <AiAssistant@suncityconnect.com>`,
+              to: customer_email,
+              subject: subject,
+              text: email_body
+            });
             aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
             extractedData.email = customer_email;
             extractedData.status = "Hot";
@@ -183,6 +229,37 @@ module.exports = async (req, res) => {
             aiReply = "I tried to send that email, but hit a glitch. Could you double-check the spelling of your email address?";
           }
         }
+
+        // NEW: CASHIER EXECUTION
+        else if (call.name === "generate_checkout_link") {
+          const { items } = call.args;
+          console.log(`🛒 AI generating checkout link for ${items.length} items...`);
+          
+          try {
+            const checkoutRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/checkout-link`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                clientId: client.id, 
+                items: items
+              })
+            });
+            
+            const checkoutData = await checkoutRes.json();
+            
+            if (checkoutData.success) {
+              aiReply = `Awesome! Your total comes to $${(checkoutData.total).toFixed(2)}. You can securely pay and send your order straight to the kitchen right here: ${checkoutData.url} 🚀`;
+              extractedData.status = "Hot";
+              extractedData.intent = "Ready to Purchase";
+            } else {
+              aiReply = `I hit a slight snag calculating that: ${checkoutData.error}. Let's try that again, what exact items did you want from the menu?`;
+            }
+          } catch (err) {
+            console.error("Checkout link generation failed:", err);
+            aiReply = "I'm having trouble connecting to the payment processor right now. Let me get a human to help finalize this!";
+          }
+        }
+
       } else {
         // Fallback: Gemini just wanted to chat normally
         aiReply = result.response.text();
@@ -193,7 +270,7 @@ module.exports = async (req, res) => {
       if (!functionCalls) {
         console.log("  Extracting lead intelligence...");
         const analystModel = genAI.getGenerativeModel({ 
-          model: "gemini-3.5-flash-lite" // <-- Upgraded for high-throughput, low-cost JSON parsing
+          model: "gemini-3.5-flash-lite"
         });
         const extractionPrompt = `Analyze this Instagram or Facebook DM sent to a local business: "${msg.incoming_message}"
         
@@ -217,7 +294,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // Use the numeric ID to reply. (Fallback to ig_username just in case it's an old message)
     const metaPayload = {
       recipient: { id: msg.meta_sender_id || msg.ig_username },
       message: { text: aiReply }
@@ -238,7 +314,6 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: "Failed to send DM", details: err });
     }
 
-    // --- FINAL UPDATE: Save the reply AND the extracted CRM data ---
     await supabase
       .from('b2b_inbox')
       .update({ 

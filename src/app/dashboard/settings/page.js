@@ -426,7 +426,7 @@ export default function SettingsPage() {
         <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-zinc-300 flex items-start gap-3 mt-4">
             <Info className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
             <p className="leading-relaxed">
-                Need help connecting? If you aren't sure how to retrieve your token or account ID from your payment processor, reach out to <a href="mailto:wes@suncityconnect.com" className="text-orange-400 font-bold underline hover:text-orange-300">wes@suncityconnect.com</a> and we'll set it up for you!
+                Need help connecting? If you aren't sure how to retrieve your token or account ID from your payment processor, reach out to <a href="mailto:wes@suncityconnect.com" className="text-orange-400 font-bold underline hover:text-orange-300">wes@suncityconnect.com</a> and we'll set it up for you! Also, if you use a different payment processor, we can help you integrate it with your AI bot.
             </p>
         </div>
                             </CardContent>
