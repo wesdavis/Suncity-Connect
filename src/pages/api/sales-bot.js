@@ -182,106 +182,133 @@ module.exports = async (req, res) => {
       
       const result = await model.generateContent(prompt);
       
-      // --- 3. THE INTERCEPTION LOOP ---
+      // --- 3. THE INTERCEPTION LOOP (FORTIFIED) ---
       const functionCalls = result.response.functionCalls;
 
       if (functionCalls && functionCalls.length > 0) {
         const call = functionCalls[0];
+        console.log(`🤖 AI attempting to use tool: ${call.name}`);
         
-        // TWILIO EXECUTION
+        // --- TOOL: TWILIO SMS ---
         if (call.name === "send_sms") {
-          const { phone_number, message } = call.args;
-          console.log(`📱 AI firing SMS to: ${phone_number}`);
-          try {
-            await twilioClient.messages.create({
-              body: message,
-              from: process.env.TWILIO_PHONE_NUMBER,
-              to: phone_number
-            });
-            aiReply = `I just shot that text over to ${phone_number}! Let me know if you need anything else. 🚀`;
-            extractedData.phone = phone_number;
-            extractedData.status = "Hot";
-          } catch (err) {
-            console.error("Twilio Error:", err);
-            aiReply = "I tried to shoot you a text, but the number didn't quite go through. Could you verify it for me?";
+          const phone_number = call.args?.phone_number;
+          const message = call.args?.message;
+          
+          if (!phone_number || !message) {
+            console.error("AI failed to provide phone or message arguments.");
+            aiReply = "I missed that phone number! Could you type it out for me one more time?";
+          } else {
+            console.log(`📱 Firing SMS to: ${phone_number}`);
+            try {
+              await twilioClient.messages.create({
+                body: message,
+                from: process.env.TWILIO_PHONE_NUMBER,
+                to: phone_number
+              });
+              aiReply = `I just shot that text over to ${phone_number}! Let me know if you need anything else. 🚀`;
+              extractedData.phone = phone_number;
+              extractedData.status = "Hot";
+            } catch (err) {
+              console.error("Twilio Error:", err);
+              aiReply = "I tried to shoot you a text, but the number didn't quite go through. Could you verify it for me?";
+            }
           }
         } 
         
-        // RESEND EXECUTION
+        // --- TOOL: RESEND EMAIL ---
         else if (call.name === "send_email") {
-          const { customer_email, subject, email_body } = call.args;
-          console.log(`✉️ AI firing Email to: ${customer_email}`);
+          const customer_email = call.args?.customer_email;
+          const subject = call.args?.subject || "Information from Sun City Connect";
+          const email_body = call.args?.email_body;
 
-          const cleanBusinessName = client.business_name.replace(/['"]/g, '');
+          if (!customer_email || !email_body) {
+            console.error("AI failed to provide email or body arguments.");
+            aiReply = "I missed that email address! Could you type it out for me again?";
+          } else {
+            console.log(`✉️ Firing Email to: ${customer_email}`);
+            const cleanBusinessName = client.business_name.replace(/['"]/g, '');
 
-          try {
-            await resend.emails.send({
-              from: `${cleanBusinessName} Ai Assistant <AiAssistant@suncityconnect.com>`,
-              to: customer_email,
-              subject: subject,
-              text: email_body
-            });
-            aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
-            extractedData.email = customer_email;
-            extractedData.status = "Hot";
-          } catch (err) {
-            console.error("Resend Error:", err);
-            aiReply = "I tried to send that email, but hit a glitch. Could you double-check the spelling of your email address?";
+            try {
+              await resend.emails.send({
+                from: `${cleanBusinessName} Ai Assistant <AiAssistant@suncityconnect.com>`,
+                to: customer_email,
+                subject: subject,
+                text: email_body
+              });
+              aiReply = `I've successfully sent an email over to ${customer_email}! It should be in your inbox shortly. 🚀`;
+              extractedData.email = customer_email;
+              extractedData.status = "Hot";
+            } catch (err) {
+              console.error("Resend Error:", err);
+              aiReply = "I tried to send that email, but hit a glitch. Could you double-check the spelling of your email address?";
+            }
           }
         }
 
-        // CASHIER EXECUTION
+        // --- TOOL: CASHIER CHECKOUT ---
         else if (call.name === "generate_checkout_link") {
-          // SAFEGUARD 1: Fallback to empty array if Gemini formats args wrong
-          const items = call.args?.items || []; 
-          console.log(`🛒 AI generating checkout link for ${items.length} items...`);
+          // STRICT VALIDATION: Ensure items is actually an array before proceeding
+          const items = Array.isArray(call.args?.items) ? call.args.items : []; 
           
-          try {
-            // SAFEGUARD 2: Fallback to localhost if env var is missing during testing
-            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+          if (items.length === 0) {
+            console.error("AI triggered checkout but passed an empty or invalid items array.");
+            aiReply = "I want to make sure I get your order exactly right. Could you tell me one more time which items you wanted from the menu?";
+          } else {
+            console.log(`🛒 Generating checkout link for ${items.length} items...`);
             
-            const checkoutRes = await fetch(`${baseUrl}/api/checkout-link`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                clientId: client.id, 
-                items: items
-              })
-            });
-            
-            // SAFEGUARD 3: Prevent JSON parse crashes if the API returns an HTML 500 page
-            const textRes = await checkoutRes.text();
-            let checkoutData;
             try {
-                checkoutData = JSON.parse(textRes);
-            } catch (parseError) {
-                console.error("API returned non-JSON:", textRes);
-                throw new Error("Backend API crashed.");
+              const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+              const checkoutRes = await fetch(`${baseUrl}/api/checkout-link`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  clientId: client.id, 
+                  items: items
+                })
+              });
+              
+              const textRes = await checkoutRes.text();
+              let checkoutData;
+              
+              try {
+                  checkoutData = JSON.parse(textRes);
+              } catch (parseError) {
+                  console.error("API returned non-JSON/HTML 500 error:", textRes);
+                  throw new Error("Backend API crashed heavily.");
+              }
+              
+              if (checkoutData.success) {
+                aiReply = `Awesome! Your total comes to $${(checkoutData.total).toFixed(2)}. You can securely pay and send your order straight to the kitchen right here: ${checkoutData.url} 🚀`;
+                extractedData.status = "Hot";
+                extractedData.intent = "Ready to Purchase";
+              } else {
+                aiReply = `I hit a slight snag calculating that: ${checkoutData.error || "Item mismatch"}. Let's try that again, what exact items did you want?`;
+              }
+            } catch (err) {
+              console.error("Checkout Engine Error:", err);
+              aiReply = "I'm having a little trouble connecting to our payment processor right now. Let me get a human to jump in and help finalize this!";
+              dbStatus = 'escalated'; // Automatically flag for human review
             }
-            
-            if (checkoutData.success) {
-              aiReply = `Awesome! Your total comes to $${(checkoutData.total).toFixed(2)}. You can securely pay and send your order straight to the kitchen right here: ${checkoutData.url} 🚀`;
-              extractedData.status = "Hot";
-              extractedData.intent = "Ready to Purchase";
-            } else {
-              aiReply = `I hit a slight snag calculating that: ${checkoutData.error}. Let's try that again, what exact items did you want from the menu?`;
-            }
-          } catch (err) {
-            console.error("Checkout link generation failed:", err);
-            aiReply = "I'm having trouble connecting to the payment processor right now. Let me get a human to help finalize this!";
           }
         }
         
-        // SAFEGUARD 4: Catch hallucinated tool names
+        // --- HALLUCINATION CATCHER ---
         else {
-          console.log(`⚠️ AI tried to call unknown tool: ${call.name}`);
-          aiReply = "I'm not exactly sure how to do that! Let me get a human to jump in and assist.";
+          console.error(`⚠️ AI Hallucination Caught: Attempted to call unknown tool '${call.name}'`);
+          aiReply = "Give me just a second to figure that out! If I can't, I'll have a human team member jump in.";
         }
 
       } else {
-        // Fallback: Gemini just wanted to chat normally
-        aiReply = result.response.text();
-        console.log(`AI drafted standard reply: ${aiReply}`);
+        // Fallback: Normal chat
+        aiReply = result.response?.text() || "";
+      }
+
+      // --- THE ULTIMATE SAFETY NET ---
+      // If AI returned absolutely nothing, or a tool completely failed to set aiReply
+      if (!aiReply || typeof aiReply !== 'string' || aiReply.trim() === "") {
+        console.error("🚨 CRITICAL: aiReply was completely empty before hitting Meta.");
+        aiReply = "I'm experiencing a quick technical hiccup! A human will be right with you.";
+        dbStatus = 'escalated';
       }
 
       // --- THE ANALYST BRAIN (Data Extraction Bypass) ---
