@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Save, Loader2, ArrowLeft, Settings, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { Save, Loader2, ArrowLeft, Settings, ExternalLink, Globe, Star, Camera, AtSign, ThumbsUp, Calendar as CalendarIcon, Clock, CheckCircle2, CreditCard, Info } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,7 +34,13 @@ export default function SettingsPage() {
     // Calendar Settings State
     const [appointmentDuration, setAppointmentDuration] = useState(60);
 
-    // NEW: Meta Integration State
+    // NEW: Payment Processor State
+    const [paymentProcessor, setPaymentProcessor] = useState('stripe');
+    const [stripeAccountId, setStripeAccountId] = useState('');
+    const [squareAccessToken, setSquareAccessToken] = useState('');
+    const [squareLocationId, setSquareLocationId] = useState('');
+
+    // Meta Integration State
     const [fbPageId, setFbPageId] = useState(null);
     const [fbPages, setFbPages] = useState([]);
     const [loadingPages, setLoadingPages] = useState(false);
@@ -47,7 +53,7 @@ export default function SettingsPage() {
             
             const { data, error } = await supabase
                 .from('clients')
-                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id')
+                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id, payment_processor, stripe_account_id, square_access_token, square_location_id')
                 .eq('user_id', session.user.id)
                 .single();
                 
@@ -62,13 +68,19 @@ export default function SettingsPage() {
                 if (data.yelp_link) setYelpLink(data.yelp_link);
                 if (data.appointment_duration) setAppointmentDuration(data.appointment_duration);
                 if (data.fb_page_id) setFbPageId(data.fb_page_id);
+                
+                // Load Payment State
+                if (data.payment_processor) setPaymentProcessor(data.payment_processor);
+                if (data.stripe_account_id) setStripeAccountId(data.stripe_account_id);
+                if (data.square_access_token) setSquareAccessToken(data.square_access_token);
+                if (data.square_location_id) setSquareLocationId(data.square_location_id);
             }
             setLoading(false);
         }
         fetchSettings();
     }, []);
 
-    // Upgraded: Meta Graph API Fetcher with Permanent Token Exchange
+    // Meta Graph API Fetcher with Permanent Token Exchange
     const fetchMetaPages = async () => {
         setLoadingPages(true);
         const { data: { session } } = await supabase.auth.getSession();
@@ -80,7 +92,6 @@ export default function SettingsPage() {
         }
 
         try {
-            // 1. Upgrade the token securely via our backend
             const exchangeRes = await fetch('/api/meta-exchange', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -95,7 +106,6 @@ export default function SettingsPage() {
                 return;
             }
 
-            // 2. Fetch the pages using the new LONG-LIVED token (which generates PERMANENT page tokens)
             const res = await fetch(`https://graph.facebook.com/v25.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${exchangeData.longToken}`);
             const data = await res.json();
             
@@ -116,7 +126,6 @@ export default function SettingsPage() {
     const connectSpecificPage = async (page) => {
         setSaving(true);
         
-        // Scoop up the Instagram Professional Account ID if it exists
         const igAccountId = page.instagram_business_account ? page.instagram_business_account.id : null;
 
         try {
@@ -132,7 +141,6 @@ export default function SettingsPage() {
                 return;
             }
 
-            // 2. Save everything to Supabase
             const { error } = await supabase
                 .from('clients')
                 .update({
@@ -198,7 +206,12 @@ export default function SettingsPage() {
                 facebook_link: facebookLink,
                 website_link: websiteLink,
                 yelp_link: yelpLink,
-                appointment_duration: parseInt(appointmentDuration) || 60
+                appointment_duration: parseInt(appointmentDuration) || 60,
+                // Save Payment Settings
+                payment_processor: paymentProcessor,
+                stripe_account_id: stripeAccountId,
+                square_access_token: squareAccessToken,
+                square_location_id: squareLocationId
             })
             .eq('id', clientId);
             
@@ -337,6 +350,87 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Payment Processing Card */}
+                        <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1 bg-green-500"></div>
+                            <CardHeader>
+                                <CardTitle className="text-xl text-white flex items-center gap-2">
+                                    <CreditCard className="w-5 h-5 text-green-400" /> Payment Integrations
+                                </CardTitle>
+                                <CardDescription className="text-zinc-400">Connect your existing Stripe or Square account to let the AI process sales.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label className="text-zinc-300">Select Processor</Label>
+                                    <div className="flex gap-4">
+                                        <Button
+                                            variant="outline"
+                                            type="button"
+                                            onClick={() => setPaymentProcessor('stripe')}
+                                            className={`flex-1 h-12 font-bold ${paymentProcessor === 'stripe' ? 'bg-[#635BFF]/10 text-[#635BFF] border-[#635BFF]' : 'bg-zinc-900/50 text-zinc-400 border-white/10 hover:text-white'}`}
+                                        >
+                                            Stripe
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            type="button"
+                                            onClick={() => setPaymentProcessor('square')}
+                                            className={`flex-1 h-12 font-bold ${paymentProcessor === 'square' ? 'bg-zinc-800 text-white border-white/30' : 'bg-zinc-900/50 text-zinc-400 border-white/10 hover:text-white'}`}
+                                        >
+                                            Square
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {paymentProcessor === 'stripe' && (
+                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                        <div className="space-y-2">
+                                            <Label className="text-zinc-300">Stripe Account ID (e.g. acct_1Hxyz...)</Label>
+                                            <Input 
+                                                placeholder="Enter your Stripe Account ID" 
+                                                className="bg-zinc-900/50 border-white/10 text-white" 
+                                                value={stripeAccountId} 
+                                                onChange={(e) => setStripeAccountId(e.target.value)} 
+                                            />
+                                            <p className="text-xs text-zinc-500">Found in your Stripe Dashboard under Settings &gt; Account Details.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {paymentProcessor === 'square' && (
+                                    <div className="space-y-4 animate-in fade-in duration-300">
+                                        <div className="space-y-2">
+                                            <Label className="text-zinc-300">Square Production Access Token</Label>
+                                            <Input 
+                                                type="password"
+                                                placeholder="sq0atp-..." 
+                                                className="bg-zinc-900/50 border-white/10 text-white" 
+                                                value={squareAccessToken} 
+                                                onChange={(e) => setSquareAccessToken(e.target.value)} 
+                                            />
+                                            <p className="text-xs text-zinc-500">Found in your Square Developer Dashboard under Credentials.</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-zinc-300">Square Location ID</Label>
+                                            <Input 
+                                                placeholder="Enter your Location ID" 
+                                                className="bg-zinc-900/50 border-white/10 text-white" 
+                                                value={squareLocationId} 
+                                                onChange={(e) => setSquareLocationId(e.target.value)} 
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                                {/* WHITE-GLOVE ASSISTANCE BANNER */}
+        <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 text-xs text-zinc-300 flex items-start gap-3 mt-4">
+            <Info className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+            <p className="leading-relaxed">
+                Need help connecting? If you aren't sure how to retrieve your token or account ID from your payment processor, reach out to <a href="mailto:wes@suncityconnect.com" className="text-orange-400 font-bold underline hover:text-orange-300">wes@suncityconnect.com</a> and we'll set it up for you!
+            </p>
+        </div>
+                            </CardContent>
+                        </Card>
                         
                         {/* Booking & Calendar Settings Card */}
                         <Card className="bg-zinc-950/60 backdrop-blur-2xl border-white/10 shadow-2xl">
