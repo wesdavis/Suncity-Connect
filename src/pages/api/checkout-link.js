@@ -32,7 +32,7 @@ export default async function handler(req, res) {
         // 2. Fetch the Real Inventory (The Source of Truth)
         const { data: inventory, error: invError } = await supabase
             .from('client_inventory')
-            .select('item_name, price')
+            .select('item_name, price, stock_count') // 🚨 ADDED stock_count
             .eq('client_id', clientId);
 
         if (invError) throw invError;
@@ -49,12 +49,24 @@ export default async function handler(req, res) {
                 return res.status(400).json({ error: `Item not found in verified menu: ${requestedItem.name}` });
             }
 
+            // Establish requested quantity
+            const requestedQty = requestedItem.quantity || 1;
+
+            // 🚨 NEW: THE INVENTORY HARD BLOCK 🚨
+            // If stock is tracked (not null) and they ask for more than we have
+            if (dbItem.stock_count !== null && requestedQty > dbItem.stock_count) {
+                // This exact error string is caught by your AI and relayed to the customer!
+                return res.status(400).json({ 
+                    error: `Sorry, not enough stock! We only have ${dbItem.stock_count} of ${dbItem.item_name} left!` 
+                });
+            }
+
             secureLineItems.push({
                 name: dbItem.item_name,
                 price: dbItem.price,
-                quantity: requestedItem.quantity || 1
+                quantity: requestedQty
             });
-            orderTotal += (dbItem.price * (requestedItem.quantity || 1));
+            orderTotal += (dbItem.price * requestedQty);
         }
 
         let checkoutUrl = '';
