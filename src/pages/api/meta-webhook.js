@@ -72,32 +72,37 @@ module.exports = async (req, res) => {
               leadSource = "Meta Ad Click";
             }
 
-            // --- 2. FETCH THE REAL HANDLE FROM META (RESILIENT) ---
+            // --- 2. FETCH THE REAL HANDLE FROM META (WORKAROUND) ---
             let realHandle = senderId.toString(); 
             
             if (clientCheck && clientCheck.meta_access_token) {
               try {
-                // 🚨 THE FIX: Facebook only accepts first_name and last_name. 
-                const profileFields = platformName === 'Instagram' ? 'username,name' : 'first_name,last_name';
-                
-                const profileUrl = `https://graph.facebook.com/v25.0/${senderId}?fields=${profileFields}&access_token=${clientCheck.meta_access_token}`;
-                const profileRes = await fetch(profileUrl);
-                
-                if (profileRes.ok) {
-                  const profileData = await profileRes.json();
+                if (platformName === 'Instagram') {
+                  // Instagram still allows standard profile fetching via username
+                  const profileUrl = `https://graph.facebook.com/v25.0/${senderId}?fields=username,name&access_token=${clientCheck.meta_access_token}`;
+                  const profileRes = await fetch(profileUrl);
                   
-                  if (platformName === 'Instagram') {
+                  if (profileRes.ok) {
+                    const profileData = await profileRes.json();
                     realHandle = profileData.username || profileData.name || senderId.toString();
-                  } else {
-                    // Combine Facebook first and last name cleanly
-                    const fbName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
-                    realHandle = fbName || senderId.toString();
+                    console.log(`👤 Resolved IG Handle: @${realHandle}`);
                   }
-                  
-                  console.log(`👤 Resolved ID ${senderId} to Handle: ${realHandle} on ${platformName}`);
                 } else {
-                   const errJson = await profileRes.json().catch(() => ({}));
-                   console.warn(`⚠️ Meta API profile fetch restricted for ${platformName}. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
+                  // 🚨 THE FACEBOOK WORKAROUND: Query the Message ID instead of the User ID
+                  const msgUrl = `https://graph.facebook.com/v25.0/${messageId}?fields=from&access_token=${clientCheck.meta_access_token}`;
+                  const msgRes = await fetch(msgUrl);
+                  
+                  if (msgRes.ok) {
+                    const msgData = await msgRes.json();
+                    // Extract the name directly from the message's 'from' object
+                    if (msgData.from && msgData.from.name) {
+                      realHandle = msgData.from.name;
+                      console.log(`👤 Resolved FB Name via Message: ${realHandle}`);
+                    }
+                  } else {
+                     const errJson = await msgRes.json().catch(() => ({}));
+                     console.warn(`⚠️ Meta API message fetch restricted. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
+                  }
                 }
               } catch (e) {
                 console.error("❌ Failed to fetch user handle from Meta:", e.message);
