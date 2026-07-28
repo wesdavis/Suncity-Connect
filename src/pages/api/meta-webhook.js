@@ -39,10 +39,10 @@ module.exports = async (req, res) => {
             continue; 
           }
 
-          // 2. THE DYNAMIC KILL SWITCH: Look up both IG and FB IDs in Supabase
+          // 2. THE DYNAMIC KILL SWITCH: Pull user_id along with account details
           const { data: clientCheck } = await supabase
             .from('clients')
-            .select('ig_account_id, fb_page_id, meta_access_token') // <-- WE NOW PULL THE ACCESS TOKEN
+            .select('user_id, ig_account_id, fb_page_id, meta_access_token') // 🚨 FIXED: Now pulling user_id
             .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
             .single();
 
@@ -72,12 +72,11 @@ module.exports = async (req, res) => {
               leadSource = "Meta Ad Click";
             }
 
-            // --- 2. FETCH THE REAL HANDLE FROM META (FIXED) ---
+            // --- 2. FETCH THE REAL HANDLE FROM META (RESILIENT) ---
             let realHandle = senderId.toString(); 
             
             if (clientCheck && clientCheck.meta_access_token) {
               try {
-                // Facebook throws an error if you ask for 'username'. We have to ask dynamically!
                 const profileFields = platformName === 'Instagram' ? 'username,name' : 'name,first_name';
                 const profileUrl = `https://graph.facebook.com/v18.0/${senderId}?fields=${profileFields}&access_token=${clientCheck.meta_access_token}`;
                 const profileRes = await fetch(profileUrl);
@@ -87,14 +86,15 @@ module.exports = async (req, res) => {
                   realHandle = profileData.username || profileData.name || profileData.first_name || senderId.toString();
                   console.log(`👤 Resolved ID ${senderId} to Handle: @${realHandle} on ${platformName}`);
                 } else {
-                   console.error("❌ Meta API Error fetching profile:", await profileRes.text());
+                   const errJson = await profileRes.json().catch(() => ({}));
+                   console.warn(`⚠️ Meta API profile fetch restricted for ${platformName} sender (${senderId}). Using fallback ID. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
                 }
               } catch (e) {
-                console.error("❌ Failed to fetch user handle from Meta:", e);
+                console.error("❌ Failed to fetch user handle from Meta:", e.message);
               }
             }
             
-            // --- 3. SAVE TO DATABASE ---
+            // --- 3. SAVE TO DATABASE WITH USER_ID STAMP ---
             const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
@@ -103,7 +103,8 @@ module.exports = async (req, res) => {
               meta_message_id: messageId, 
               platform: platformName,
               lead_source: leadSource,
-              meta_sender_id: senderId.toString()
+              meta_sender_id: senderId.toString(),
+              user_id: clientCheck?.user_id || null // 🚨 FIXED: Immediately stamp user_id so Dashboard can render the lead!
             }]);
 
             if (error && error.code === '23505') {
@@ -118,32 +119,25 @@ module.exports = async (req, res) => {
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
-          // 1. THE DETECTOR: Is it an Instagram comment OR a Facebook Page comment?
           const isIGComment = change.field === 'comments';
           const isFBComment = change.field === 'feed' && change.value.item === 'comment';
 
           if (isIGComment || isFBComment) {
-            // 2. THE TRANSLATOR: Normalize the data since FB and IG use different variable names
             const commentId = isIGComment ? change.value.id : change.value.comment_id;
             const commentText = isIGComment ? change.value.text : change.value.message;
             
-            // Skip if there's no sender data (happens if someone deletes their comment)
             if (!change.value.from) continue;
 
-            // FIX 1: THE CRASH SAFEGUARD
-            // If the user just posts a GIF or photo, there is no text. Drop it so the app doesn't crash.
             if (!commentText) {
               console.log("🔇 Dropping comment because it contains no text payload.");
               continue;
             }
 
-            // Ensure the business didn't post the comment themselves
             if (change.value.from.id.toString() === businessId.toString()) continue;
 
             const commenterName = change.value.from.username || change.value.from.name || "User";
             const platformName = isIGComment ? "Instagram" : "Facebook";
 
-            // 3. THE DATABASE LOCK: Prevent duplicate replies
             const { error: lockError } = await supabase.from('handled_comments').insert([{ comment_id: commentId }]);
             
             if (lockError) {
@@ -154,15 +148,12 @@ module.exports = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
-              
-              // 4. GET CLIENT CREDENTIALS
               const { data: client } = await supabase
                 .from('clients')
                 .select('meta_access_token, is_bot_active')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
-              // --- THE KILL SWITCH ---
               if (client && client.is_bot_active === false) {
                  console.log(`⏸️ Bot is PAUSED. Dropping comment reply.`);
                  continue; 
@@ -171,22 +162,17 @@ module.exports = async (req, res) => {
               let replyText = "";
               const cleanText = commentText.toLowerCase().trim();
 
-              // 5. GENERATE REPLY
               if (cleanText.includes('demo')) {
-                // The Viral CTA Trigger
                 replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else { 
-                
-                //The AI General Response
-                const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+                // 🚨 FIXED: Updated model string to gemini-1.5-flash
+                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                 const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
                 const result = await model.generateContent(prompt);
-                replyText = result.response.text().trim();}
+                replyText = result.response.text().trim();
+              }
 
-              // 6. POST THE REPLY TO META
               if (client && client.meta_access_token) {
-                
-                // --- THE PUBLIC REPLY ---
                 const endpoint = isIGComment ? 'replies' : 'comments';
                 const url = `https://graph.facebook.com/v18.0/${commentId}/${endpoint}`;
 
@@ -206,9 +192,7 @@ module.exports = async (req, res) => {
                   console.log(`✅ Successfully replied to ${platformName} comment with: ${replyText}`);
                 }
 
-                // --- 7. NEW: THE PRIVATE DM (SLIDE INTO INBOX) ---
                 if (cleanText.includes('demo')) {
-                  // NEW: Using the unified Messenger API instead of the deprecated classic endpoint
                   const dmUrl = `https://graph.facebook.com/v18.0/me/messages`;
                   const dmText = "Hey! Here is the link to grab a spot on Wes's calendar: https://calendar.app.google/rbTHX427Am9dFxhN9 Let me know if you have any questions! 🚀";
 

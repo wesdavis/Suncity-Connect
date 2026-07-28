@@ -370,7 +370,7 @@ module.exports = async (req, res) => {
         ai_reply: aiReply, 
         status: dbStatus, 
         extracted_data: extractedData,
-        client_id: client.id // 🚨 FIX: Stamping the client ID so the dashboard can see it!
+        user_id: client.user_id // 🚨 FIX: Stamping the correct schema column!
       })
       .eq('id', msg.id);
 
