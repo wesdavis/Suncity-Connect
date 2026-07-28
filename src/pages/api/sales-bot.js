@@ -44,7 +44,7 @@ module.exports = async (req, res) => {
     console.log(`🧠 Loaded brain for: ${client.business_name}`);
     const META_ACCESS_TOKEN = client.meta_access_token; 
 
-    // --- NEW: FETCH THE VERIFIED MENU ---
+    // --- FETCH THE VERIFIED MENU ---
     const { data: inventory } = await supabase
       .from('client_inventory')
       .select('item_name, price, stock_count')
@@ -57,7 +57,6 @@ module.exports = async (req, res) => {
         return `${i.item_name} - $${i.price.toFixed(2)}${stockInfo}`;
       }).join('\n');
     }
-    // ------------------------------------
 
     const matchColumn = msg.meta_sender_id ? 'meta_sender_id' : 'ig_username';
     const matchValue = msg.meta_sender_id || msg.ig_username;
@@ -125,7 +124,6 @@ module.exports = async (req, res) => {
       const isRetailClient = inventory && inventory.length > 0;
 
       if (isRetailClient) {
-        // Give the AI the ability to generate links
         functionDeclarations.push({
           name: "generate_checkout_link",
           description: "Generates a secure payment link. ONLY call this when the customer specifies exact items from the menu and is ready to buy.",
@@ -149,12 +147,26 @@ module.exports = async (req, res) => {
           }
         });
 
-        // Add the menu and rules to the prompt
         dynamicMenuSection = `\n--- VERIFIED MENU & PRICING ---\n${menuString}\n`;
         dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.\n7. SCARCITY TRIGGER: When listing items or answering questions about the menu, if an item's Stock count is 3 or less, you must organically append a sense of urgency to close the sale (e.g., "These are going quick, it would be wise to purchase now!").`;
       }
 
       const salesTools = [{ functionDeclarations }];
+
+      // --- ⏰ TIMEZONE & HOURS AWARENESS ---
+      // This grabs the exact current time formatted like "Monday, 10:15 PM"
+      const currentLocalTime = new Date().toLocaleString('en-US', {
+        timeZone: client.timezone || 'America/Denver',
+        weekday: 'long',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+      });
+
+      const timeContext = `\n--- TIME & AVAILABILITY ---
+      Current Local Time: ${currentLocalTime}
+      Business Hours: ${client.hours || '24/7'}
+      CRITICAL RULE: You must check the Current Local Time against the Business Hours. If the business is currently CLOSED, you CANNOT generate a checkout link or take orders. Politely inform the customer that the store/kitchen is closed, state the normal hours, and tell them when they can order next.`;
 
       // 3. INJECT TOOLS INTO GEMINI
       const model = genAI.getGenerativeModel({ 
@@ -167,6 +179,7 @@ module.exports = async (req, res) => {
       --- BUSINESS KNOWLEDGE ---
       ${client.custom_prompt}
       ${dynamicMenuSection}
+      ${timeContext}
       
       --- CRITICAL CLOSING RULES ---
       1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
@@ -194,7 +207,6 @@ module.exports = async (req, res) => {
         const call = functionCalls[0];
         console.log(`🤖 AI attempting to use tool: ${call.name}`);
         
-        // --- TOOL: TWILIO SMS ---
         if (call.name === "send_sms") {
           const phone_number = call.args?.phone_number;
           const message = call.args?.message;
@@ -220,7 +232,6 @@ module.exports = async (req, res) => {
           }
         } 
         
-        // --- TOOL: RESEND EMAIL ---
         else if (call.name === "send_email") {
           const customer_email = call.args?.customer_email;
           const subject = call.args?.subject || "Information from Sun City Connect";
@@ -250,9 +261,7 @@ module.exports = async (req, res) => {
           }
         }
 
-        // --- TOOL: CASHIER CHECKOUT ---
         else if (call.name === "generate_checkout_link") {
-          // STRICT VALIDATION: Ensure items is actually an array before proceeding
           const items = Array.isArray(call.args?.items) ? call.args.items : []; 
           
           if (items.length === 0) {
@@ -292,31 +301,26 @@ module.exports = async (req, res) => {
             } catch (err) {
               console.error("Checkout Engine Error:", err);
               aiReply = "I'm having a little trouble connecting to our payment processor right now. Let me get a human to jump in and help finalize this!";
-              dbStatus = 'escalated'; // Automatically flag for human review
+              dbStatus = 'escalated';
             }
           }
         }
         
-        // --- HALLUCINATION CATCHER ---
         else {
           console.error(`⚠️ AI Hallucination Caught: Attempted to call unknown tool '${call.name}'`);
           aiReply = "Give me just a second to figure that out! If I can't, I'll have a human team member jump in.";
         }
 
       } else {
-        // Fallback: Normal chat
         aiReply = result.response?.text() || "";
       }
 
-      // --- THE ULTIMATE SAFETY NET ---
-      // If AI returned absolutely nothing, or a tool completely failed to set aiReply
       if (!aiReply || typeof aiReply !== 'string' || aiReply.trim() === "") {
         console.error("🚨 CRITICAL: aiReply was completely empty before hitting Meta.");
         aiReply = "I'm experiencing a quick technical hiccup! A human will be right with you.";
         dbStatus = 'escalated';
       }
 
-      // --- THE ANALYST BRAIN (Data Extraction Bypass) ---
       if (!functionCalls) {
         console.log("  Extracting lead intelligence...");
         const analystModel = genAI.getGenerativeModel({ 
@@ -370,7 +374,7 @@ module.exports = async (req, res) => {
         ai_reply: aiReply, 
         status: dbStatus, 
         extracted_data: extractedData,
-        user_id: client.user_id // 🚨 FIX: Stamping the correct schema column!
+        user_id: client.user_id 
       })
       .eq('id', msg.id);
 
