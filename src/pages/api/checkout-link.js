@@ -72,18 +72,29 @@ export default async function handler(req, res) {
                 quantity: item.quantity,
             }));
 
+            // Create a readable string of the items for the webhook notification
+            const orderSummary = secureLineItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
+
             const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card', 'cashapp'],
                 line_items: stripeLineItems,
                 mode: 'payment',
                 success_url: `https://suncityconnect.com/success`, 
+                // 🚨 INJECTING THE OMNI-CHANNEL METADATA 🚨
+                metadata: {
+                    order_type: 'product_order',
+                    client_id: clientId,
+                    // Truncate to 500 characters to strictly respect Stripe's API limits
+                    items: orderSummary.substring(0, 500),
+                    fulfillment: 'Standard'
+                }
             }, {
                 // This routes the payment directly to the client's connected Stripe account
                 stripeAccount: client.stripe_account_id 
             });
 
             checkoutUrl = session.url;
-        } 
+        }
         
         // 5. Generate the Square Link
         else if (client.payment_processor === 'square') {
