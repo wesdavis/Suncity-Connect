@@ -369,7 +369,8 @@ module.exports = async (req, res) => {
       .update({ 
         ai_reply: aiReply, 
         status: dbStatus, 
-        extracted_data: extractedData 
+        extracted_data: extractedData,
+        client_id: client.id // 🚨 FIX: Stamping the client ID so the dashboard can see it!
       })
       .eq('id', msg.id);
 
