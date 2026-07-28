@@ -47,12 +47,15 @@ module.exports = async (req, res) => {
     // --- NEW: FETCH THE VERIFIED MENU ---
     const { data: inventory } = await supabase
       .from('client_inventory')
-      .select('item_name, price')
+      .select('item_name, price, stock_count')
       .eq('client_id', client.id);
 
     let menuString = "No active menu items available.";
     if (inventory && inventory.length > 0) {
-      menuString = inventory.map(i => `${i.item_name} - $${i.price.toFixed(2)}`).join('\n');
+      menuString = inventory.map(i => {
+        const stockInfo = (i.stock_count !== null && i.stock_count < 9999) ? ` (Stock: ${i.stock_count})` : "";
+        return `${i.item_name} - $${i.price.toFixed(2)}${stockInfo}`;
+      }).join('\n');
     }
     // ------------------------------------
 
@@ -148,7 +151,7 @@ module.exports = async (req, res) => {
 
         // Add the menu and rules to the prompt
         dynamicMenuSection = `\n--- VERIFIED MENU & PRICING ---\n${menuString}\n`;
-        dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.`;
+        dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.\n7. SCARCITY TRIGGER: When listing items or answering questions about the menu, if an item's Stock count is 3 or less, you must organically append a sense of urgency to close the sale (e.g., "These are going quick, it would be wise to purchase now!").`;
       }
 
       const salesTools = [{ functionDeclarations }];
