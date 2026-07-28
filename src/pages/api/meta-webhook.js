@@ -77,17 +77,27 @@ module.exports = async (req, res) => {
             
             if (clientCheck && clientCheck.meta_access_token) {
               try {
-                const profileFields = platformName === 'Instagram' ? 'username,name' : 'name,first_name';
-                const profileUrl = `https://graph.facebook.com/v18.0/${senderId}?fields=${profileFields}&access_token=${clientCheck.meta_access_token}`;
+                // 🚨 THE FIX: Facebook only accepts first_name and last_name. 
+                const profileFields = platformName === 'Instagram' ? 'username,name' : 'first_name,last_name';
+                
+                const profileUrl = `https://graph.facebook.com/v25.0/${senderId}?fields=${profileFields}&access_token=${clientCheck.meta_access_token}`;
                 const profileRes = await fetch(profileUrl);
                 
                 if (profileRes.ok) {
                   const profileData = await profileRes.json();
-                  realHandle = profileData.username || profileData.name || profileData.first_name || senderId.toString();
-                  console.log(`👤 Resolved ID ${senderId} to Handle: @${realHandle} on ${platformName}`);
+                  
+                  if (platformName === 'Instagram') {
+                    realHandle = profileData.username || profileData.name || senderId.toString();
+                  } else {
+                    // Combine Facebook first and last name cleanly
+                    const fbName = `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim();
+                    realHandle = fbName || senderId.toString();
+                  }
+                  
+                  console.log(`👤 Resolved ID ${senderId} to Handle: ${realHandle} on ${platformName}`);
                 } else {
                    const errJson = await profileRes.json().catch(() => ({}));
-                   console.warn(`⚠️ Meta API profile fetch restricted for ${platformName} sender (${senderId}). Using fallback ID. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
+                   console.warn(`⚠️ Meta API profile fetch restricted for ${platformName}. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
                 }
               } catch (e) {
                 console.error("❌ Failed to fetch user handle from Meta:", e.message);
