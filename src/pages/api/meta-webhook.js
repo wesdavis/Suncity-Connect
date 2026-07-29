@@ -1,11 +1,45 @@
+const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// Helper function to verify Meta's HMAC SHA-256 Signature
+function verifyMetaSignature(req) {
+  const signature = req.headers['x-hub-signature-256'];
+  const appSecret = process.env.META_APP_SECRET;
+
+  if (!appSecret) {
+    console.warn("⚠️ META_APP_SECRET environment variable is missing. Skipping signature check.");
+    return true; 
+  }
+
+  if (!signature) {
+    console.error("❌ Missing X-Hub-Signature-256 header.");
+    return false;
+  }
+
+  try {
+    const expectedHash = crypto
+      .createHmac('sha256', appSecret)
+      .update(JSON.stringify(req.body))
+      .digest('hex');
+
+    const expectedSignature = `sha256=${expectedHash}`;
+
+    return crypto.timingSafeEqual(
+      Buffer.from(signature),
+      Buffer.from(expectedSignature)
+    );
+  } catch (err) {
+    console.error("❌ Signature verification failed with error:", err.message);
+    return false;
+  }
+}
+
 module.exports = async (req, res) => {
-  // 1. THE HANDSHAKE
+  // 1. THE HANDSHAKE (GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -19,8 +53,14 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 2. RECEIVING DATA FROM META
+  // 2. RECEIVING DATA FROM META (POST)
   if (req.method === 'POST') {
+    // 🚨 HMAC SECURITY CHECK: Reject unauthorized or spoofed requests
+    if (!verifyMetaSignature(req)) {
+      console.error("⛔ Unauthorized request: HMAC signature mismatch.");
+      return res.status(401).send('Invalid signature');
+    }
+
     const body = req.body;
 
     // THE OMNI-CHANNEL SWITCH: Accept both IG and FB Page data!
@@ -42,7 +82,7 @@ module.exports = async (req, res) => {
           // 2. THE DYNAMIC KILL SWITCH: Pull user_id along with account details
           const { data: clientCheck } = await supabase
             .from('clients')
-            .select('user_id, ig_account_id, fb_page_id, meta_access_token') // 🚨 FIXED: Now pulling user_id
+            .select('user_id, ig_account_id, fb_page_id, meta_access_token')
             .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
             .single();
 
@@ -62,7 +102,6 @@ module.exports = async (req, res) => {
             
             console.log("📨 Received DM:", webhookEvent.message.text);
 
-            // --- 1. DETECT PLATFORM AND LEAD SOURCE ---
             const platformName = body.object === 'instagram' ? 'Instagram' : 'Facebook';
             let leadSource = "Direct Message";
 
@@ -72,13 +111,12 @@ module.exports = async (req, res) => {
               leadSource = "Meta Ad Click";
             }
 
-            // --- 2. FETCH THE REAL HANDLE FROM META (WORKAROUND) ---
+            // --- RESOLVE HANDLE VIA MESSAGE ID WORKAROUND ---
             let realHandle = senderId.toString(); 
             
             if (clientCheck && clientCheck.meta_access_token) {
               try {
                 if (platformName === 'Instagram') {
-                  // Instagram still allows standard profile fetching via username
                   const profileUrl = `https://graph.facebook.com/v25.0/${senderId}?fields=username,name&access_token=${clientCheck.meta_access_token}`;
                   const profileRes = await fetch(profileUrl);
                   
@@ -88,13 +126,11 @@ module.exports = async (req, res) => {
                     console.log(`👤 Resolved IG Handle: @${realHandle}`);
                   }
                 } else {
-                  // 🚨 THE FACEBOOK WORKAROUND: Query the Message ID instead of the User ID
                   const msgUrl = `https://graph.facebook.com/v25.0/${messageId}?fields=from&access_token=${clientCheck.meta_access_token}`;
                   const msgRes = await fetch(msgUrl);
                   
                   if (msgRes.ok) {
                     const msgData = await msgRes.json();
-                    // Extract the name directly from the message's 'from' object
                     if (msgData.from && msgData.from.name) {
                       realHandle = msgData.from.name;
                       console.log(`👤 Resolved FB Name via Message: ${realHandle}`);
@@ -109,7 +145,7 @@ module.exports = async (req, res) => {
               }
             }
             
-            // --- 3. SAVE TO DATABASE WITH USER_ID STAMP ---
+            // --- SAVE TO DATABASE WITH USER_ID STAMP ---
             const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
@@ -119,7 +155,7 @@ module.exports = async (req, res) => {
               platform: platformName,
               lead_source: leadSource,
               meta_sender_id: senderId.toString(),
-              user_id: clientCheck?.user_id || null // 🚨 FIXED: Immediately stamp user_id so Dashboard can render the lead!
+              user_id: clientCheck?.user_id || null
             }]);
 
             if (error && error.code === '23505') {
@@ -180,7 +216,6 @@ module.exports = async (req, res) => {
               if (cleanText.includes('demo')) {
                 replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else { 
-                // 🚨 FIXED: Updated model string to gemini-1.5-flash
                 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                 const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
                 const result = await model.generateContent(prompt);
@@ -237,9 +272,9 @@ module.exports = async (req, res) => {
           }
         }
       }
-      res.status(200).send('EVENT_RECEIVED');
+      return res.status(200).send('EVENT_RECEIVED');
     } else {
-      res.status(404).send();
+      return res.status(404).send();
     }
   }
 };

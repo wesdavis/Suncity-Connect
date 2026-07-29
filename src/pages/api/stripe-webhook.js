@@ -38,15 +38,51 @@ export default async function handler(req, res) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
 
-    // --- 🛒 1. CONVERSATIONAL COMMERCE ROUTING (AGNOSTIC) ---
-    // If the checkout session has our generic product order metadata
+    // --- 🛒 1. CONVERSATIONAL COMMERCE ROUTING (PRODUCT ORDERS) ---
     if (session.metadata?.order_type === 'product_order') {
       const clientId = session.metadata.client_id;
-      const items = session.metadata.items;
+      const rawItems = session.metadata.items;
       const fulfillmentType = session.metadata.fulfillment || "Standard";
       
-      console.log(`📦 New storefront order for Client ID: ${clientId}. Sending merchant notification...`);
+      console.log(`📦 New storefront order for Client ID: ${clientId}. Processing order...`);
 
+      // 1A. DECREMENT INVENTORY STOCK
+      let parsedItems = [];
+      try {
+        parsedItems = typeof rawItems === 'string' && rawItems.startsWith('[') 
+          ? JSON.parse(rawItems) 
+          : [];
+      } catch (pErr) {
+        console.warn("⚠️ Could not parse items metadata as JSON array for stock update.");
+      }
+
+      if (Array.isArray(parsedItems) && parsedItems.length > 0) {
+        for (const item of parsedItems) {
+          if (item.name && item.quantity) {
+            // Find the item in client's inventory
+            const { data: invItem } = await supabase
+              .from('client_inventory')
+              .select('id, stock_count')
+              .eq('client_id', clientId)
+              .ilike('item_name', item.name)
+              .single();
+
+            // If found and stock is tracked (not unlimited 9999)
+            if (invItem && invItem.stock_count !== null && invItem.stock_count < 9999) {
+              const newStock = Math.max(0, invItem.stock_count - item.quantity);
+              
+              await supabase
+                .from('client_inventory')
+                .update({ stock_count: newStock })
+                .eq('id', invItem.id);
+
+              console.log(`📉 Decremented stock for '${item.name}': ${invItem.stock_count} ➔ ${newStock}`);
+            }
+          }
+        }
+      }
+
+      // 1B. FETCH CLIENT DETAILS & SEND MERCHANT NOTIFICATION
       const { data: clientData, error: dbError } = await supabase
         .from('clients')
         .select('email, business_name')
@@ -58,8 +94,10 @@ export default async function handler(req, res) {
          return res.status(500).json({ error: 'Database fetch failed' });
       }
 
-      // NOTE: Using primary email. Can be updated to a dedicated 'orders_email' later.
       const targetEmail = clientData.email; 
+      const displayItems = Array.isArray(parsedItems) && parsedItems.length > 0
+        ? parsedItems.map(i => `${i.quantity}x ${i.name}`).join(', ')
+        : rawItems;
 
       try {
          await resend.emails.send({
@@ -67,14 +105,14 @@ export default async function handler(req, res) {
             to: targetEmail,
             subject: `🚨 NEW ORDER RECEIVED: ${clientData.business_name}`,
             html: `
-              <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 8px; max-width: 500px; margin: auto;">
-                <h2 style="text-align: center; color: #333;">New Order Received</h2>
+              <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 8px; max-width: 500px; margin: auto; background-color: #ffffff;">
+                <h2 style="text-align: center; color: #111;">New Order Received</h2>
                 <p style="text-align: center; color: #666;"><strong>Fulfillment:</strong> ${fulfillmentType}</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                <p style="font-size: 14px; color: #888;"><strong>ORDER DETAILS:</strong></p>
-                <p style="font-size: 18px; font-weight: bold; line-height: 1.6; color: #000;">${items}</p>
+                <p style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px;"><strong>ORDER DETAILS:</strong></p>
+                <p style="font-size: 18px; font-weight: bold; line-height: 1.6; color: #000;">${displayItems}</p>
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-                <p style="text-align: center; color: #28a745; font-weight: bold;">✔ PAID VIA AI CASHIER</p>
+                <p style="text-align: center; color: #16a34a; font-weight: bold;">✔ PAID VIA AI CASHIER</p>
               </div>
             `
          });
@@ -85,7 +123,6 @@ export default async function handler(req, res) {
     } 
     
     // --- 💻 2. SAAS SUBSCRIPTION ROUTING ---
-    // If there is no product metadata, treat it as a standard Sun City Connect software signup
     else {
       const userId = session.client_reference_id;
       const stripeCustomerId = session.customer;

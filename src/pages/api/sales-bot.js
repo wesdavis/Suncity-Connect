@@ -115,7 +115,27 @@ module.exports = async (req, res) => {
             },
             required: ["customer_email", "subject", "email_body"]
           }
+        },
+        {
+          name: "book_appointment",
+          description: "Schedules an appointment or consultation for the customer. ONLY call this when the customer provides a specific date, time, and their contact info.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              customer_name: { type: "STRING", description: "The customer's name." },
+              customer_email: { type: "STRING", description: "The customer's email address." },
+              customer_phone: { type: "STRING", description: "The customer's phone number, if provided." },
+              appointment_time: { type: "STRING", description: "ISO 8601 formatted date and time string for the requested appointment (e.g., 2026-07-29T14:00:00)." },
+              service_type: { type: "STRING", description: "The requested service, demo, or consultation type." }
+            },
+            required: ["customer_name", "appointment_time"]
+          }
         }
+        
+
+        
+
+
       ];
 
       // --- 2. DYNAMIC CASHIER INJECTION ---
@@ -305,6 +325,62 @@ module.exports = async (req, res) => {
             }
           }
         }
+
+        // --- TOOL: NATIVE BOOKING ---
+        else if (call.name === "book_appointment") {
+          const { customer_name, customer_email, customer_phone, appointment_time, service_type } = call.args;
+
+          if (!customer_name || !appointment_time) {
+            console.error("AI failed to provide name or time arguments.");
+            aiReply = "I need just a bit more info! Could you confirm your name and the exact time you wanted?";
+          } else {
+            console.log(`📅 Booking native appointment for: ${customer_name}`);
+            try {
+              const { data: newAppt, error: apptError } = await supabase
+                .from('appointments')
+                .insert([{
+                  user_id: client.user_id,
+                  customer_name: customer_name,
+                  customer_email: customer_email || null,
+                  customer_phone: customer_phone || null,
+                  appointment_time: appointment_time,
+                  service_type: service_type || 'General Consultation',
+                  status: 'confirmed'
+                }]);
+
+              if (apptError) throw apptError;
+
+              const formattedTime = new Date(appointment_time).toLocaleString('en-US', {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+                timeZone: client.timezone || 'America/Denver'
+              });
+
+              aiReply = `You're all set, ${customer_name}! I have you booked for ${formattedTime}. I'll make sure the team is ready for you. 🚀`;
+              extractedData.status = "Hot";
+              extractedData.intent = "Booked Appointment";
+
+              if (customer_email) {
+                await resend.emails.send({
+                  from: `${client.business_name.replace(/['"]/g, '')} <bookings@suncityconnect.com>`,
+                  to: customer_email,
+                  subject: `Booking Confirmed: ${client.business_name}`,
+                  text: `Hi ${customer_name},\n\nYour appointment is confirmed for ${formattedTime}.\n\nSee you then!`
+                });
+              }
+            } catch (err) {
+              console.error("Native Booking Error:", err);
+              aiReply = "I ran into a quick issue locking in that time slot. Let me get a human team member to verify availability for you!";
+              dbStatus = 'escalated';
+            }
+          }
+        }
+
+
         
         else {
           console.error(`⚠️ AI Hallucination Caught: Attempted to call unknown tool '${call.name}'`);
