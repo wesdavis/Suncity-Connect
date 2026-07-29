@@ -10,8 +10,9 @@ function verifyMetaSignature(req) {
   const signature = req.headers['x-hub-signature-256'];
   const appSecret = process.env.META_APP_SECRET;
 
+  // If secret isn't configured yet, skip check
   if (!appSecret) {
-    console.warn("⚠️ META_APP_SECRET environment variable is missing. Skipping signature check.");
+    console.warn("⚠️ META_APP_SECRET missing. Skipping signature check.");
     return true; 
   }
 
@@ -21,19 +22,24 @@ function verifyMetaSignature(req) {
   }
 
   try {
+    // Reconstruct body safely
+    const payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    
     const expectedHash = crypto
       .createHmac('sha256', appSecret)
-      .update(JSON.stringify(req.body))
+      .update(payload)
       .digest('hex');
 
     const expectedSignature = `sha256=${expectedHash}`;
 
+    // Return true if signatures match
     return crypto.timingSafeEqual(
       Buffer.from(signature),
       Buffer.from(expectedSignature)
     );
   } catch (err) {
-    console.error("❌ Signature verification failed with error:", err.message);
+    console.error("❌ Signature verification error:", err.message);
+    // Fallback: If Vercel object reordering caused stringify mismatch, log warning
     return false;
   }
 }
