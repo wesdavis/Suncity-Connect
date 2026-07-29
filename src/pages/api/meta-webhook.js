@@ -21,15 +21,18 @@ async function getRawBody(readable) {
   return Buffer.concat(chunks);
 }
 
-// Helper function to verify Meta's HMAC SHA-256 Signature
 function verifyMetaSignature(rawBody, signatureHeader) {
   const appSecret = process.env.META_APP_SECRET;
 
   if (!appSecret) {
-    console.warn("⚠️ META_APP_SECRET missing. Skipping check.");
-    return true; 
+    console.warn("⚠️ META_APP_SECRET environment variable is missing in Vercel!");
+    return true; // Bypass if secret is missing
   }
-  if (!signatureHeader) return false;
+
+  if (!signatureHeader) {
+    console.error("❌ Missing X-Hub-Signature-256 header from Meta request.");
+    return false;
+  }
 
   try {
     const expectedHash = crypto
@@ -37,12 +40,23 @@ function verifyMetaSignature(rawBody, signatureHeader) {
       .update(rawBody)
       .digest('hex');
 
+    const expectedSignature = `sha256=${expectedHash}`;
+
+    // Diagnostic Logs (Check these in Vercel logs!)
+    console.log(`🔍 Received Sig: ${signatureHeader}`);
+    console.log(`🔍 Expected Sig: ${expectedSignature}`);
+
+    if (signatureHeader.length !== expectedSignature.length) {
+      console.error("❌ Signature length mismatch!");
+      return false;
+    }
+
     return crypto.timingSafeEqual(
       Buffer.from(signatureHeader),
-      Buffer.from(`sha256=${expectedHash}`)
+      Buffer.from(expectedSignature)
     );
   } catch (err) {
-    console.error("❌ Signature verification failed:", err.message);
+    console.error("❌ Signature verification exception:", err.message);
     return false;
   }
 }
