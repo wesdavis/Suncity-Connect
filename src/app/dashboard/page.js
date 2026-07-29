@@ -32,6 +32,11 @@ export default function PremiumLeadDashboard() {
   const [clientDomain, setClientDomain] = useState('');   
   const [activeTab, setActiveTab] = useState('leads'); 
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // --- NATIVE MANUAL BOOKING STATE ---
+  const [isManualBooking, setIsManualBooking] = useState(false);
+  const [manualBookingData, setManualBookingData] = useState({ date: '', time: '', service: 'Manual Override' });
+
   const router = useRouter();   
 
   const handleLogout = async () => {     
@@ -68,6 +73,38 @@ export default function PremiumLeadDashboard() {
 
     if (!error) {
       setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: 'cancelled' } : a));
+    }
+  };
+
+  // --- MANUAL BOOKING FUNCTION ---
+  const handleManualBooking = async (e) => {
+    e.preventDefault();
+    if (!manualBookingData.date || !manualBookingData.time) return;
+
+    // Build the timestamp
+    const dateTimeString = `${manualBookingData.date}T${manualBookingData.time}:00`;
+    const appointmentDate = new Date(dateTimeString);
+
+    const extracted = selectedLead?.extracted_data || {};
+
+    const { error } = await supabase
+      .from('appointments')
+      .insert([{
+        user_id: userId,
+        customer_name: selectedLead?.ig_username || 'Manual Lead',
+        customer_email: extracted.email !== 'Pending' ? extracted.email : null,
+        customer_phone: extracted.phone !== 'Pending' ? extracted.phone : null,
+        appointment_time: appointmentDate.toISOString(),
+        service_type: manualBookingData.service,
+        status: 'confirmed'
+      }]);
+
+    if (!error) {
+      setIsManualBooking(false);
+      setManualBookingData({ date: '', time: '', service: 'Manual Override' });
+      // We don't need to manually update state here because the realtime listener will catch it!
+    } else {
+      alert('Error booking appointment manually.');
     }
   };
 
@@ -147,36 +184,44 @@ export default function PremiumLeadDashboard() {
           window.history.replaceState(null, '', '/dashboard');
       }
 
-        channel = supabase.channel('dashboard-sync')
-        // 1. Listen for new leads dropping into the inbox
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'b2b_inbox' },
-          (payload) => {
-            console.log("New lead caught in real-time!", payload.new);
-            // Instantly push the new lead to the top of the list
-            setLeads((currentLeads) => [payload.new, ...currentLeads]);
+      channel = supabase.channel('dashboard-sync')
+      // 1. Listen for new leads dropping into the inbox
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'b2b_inbox' },
+        (payload) => {
+          console.log("New lead caught in real-time!", payload.new);
+          setLeads((currentLeads) => [payload.new, ...currentLeads]);
+        }
+      )
+      // 2. Listen for new appointments to instantly populate the calendar
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'appointments', filter: `user_id=eq.${session.user.id}` },
+        (payload) => {
+          console.log("📅 New appointment booked in real-time!", payload.new);
+          setAppointments((current) => [...current, payload.new].sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time)));
+        }
+      )
+      // 3. Listen for the Stripe Webhook updating the client row
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'clients', filter: `user_id=eq.${session.user.id}` },
+        (payload) => {
+          console.log("Client profile updated!", payload.new);
+          if (payload.new.is_subscribed) {
+            setIsSubscribed(true);
           }
-        )
-        // 2. Listen for the Stripe Webhook updating the client row
-        .on(
-          'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'clients', filter: `user_id=eq.${session.user.id}` },
-          (payload) => {
-            console.log("Client profile updated!", payload.new);
-            if (payload.new.is_subscribed) {
-              setIsSubscribed(true);
-            }
-          }
-        )
-        .subscribe();
-        setLoading(false);
+        }
+      )
+      .subscribe();
+      
+      setLoading(false);
     }
 
     checkAuthAndFetchData();
 
-      // Cleanup function to kill the listener if they leave the page
-      return () => {
+    return () => {
       if (channel) {
         supabase.removeChannel(channel);
       }
@@ -657,7 +702,12 @@ export default function PremiumLeadDashboard() {
       </div>       
       
       {/* Selected Lead Chat Log Sheet */}       
-      <Sheet open={!!selectedLead} onOpenChange={(open) => !open && setSelectedLead(null)}>         
+      <Sheet open={!!selectedLead} onOpenChange={(open) => {
+        if(!open) {
+          setSelectedLead(null);
+          setIsManualBooking(false);
+        }
+      }}>         
         <SheetContent className="w-full sm:max-w-md bg-zinc-950/90 backdrop-blur-3xl border-l border-white/10 p-0 flex flex-col shadow-2xl">           
           <SheetHeader className="p-6 border-b border-white/5 bg-black/20">             
             <SheetTitle className="flex items-center justify-between text-xl text-white">               
@@ -672,23 +722,77 @@ export default function PremiumLeadDashboard() {
             <SheetDescription className="text-zinc-400 mt-2">               
               Live conversation logged by the AI Sales Assistant.             
             </SheetDescription>             
-            <div className="mt-4 flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-zinc-400">               
-              <LinkIcon className="h-4 w-4" />               
-              <span>Source: <span className="text-zinc-300 font-medium">{selectedLead?.lead_source || 'Direct Message'}</span> on {selectedLead?.platform || 'Website'}</span>             
+            <div className="mt-4 flex flex-col gap-3">               
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-white/5 border border-white/5 text-sm text-zinc-400">               
+                <LinkIcon className="h-4 w-4" />               
+                <span>Source: <span className="text-zinc-300 font-medium">{selectedLead?.lead_source || 'Direct Message'}</span> on {selectedLead?.platform || 'Website'}</span>             
+              </div>
+              <Button 
+                onClick={() => setIsManualBooking(!isManualBooking)}
+                className={`w-full border transition-all ${isManualBooking ? 'bg-zinc-800 text-white hover:bg-zinc-700 border-white/10' : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20 border-orange-500/20 font-bold'}`}
+              >
+                <CalendarIcon className="w-4 h-4 mr-2" /> 
+                {isManualBooking ? 'Cancel Booking Override' : 'Manual Override: Book Appointment'}
+              </Button>             
             </div>           
-          </SheetHeader>           
+          </SheetHeader>  
+
+          {/* MANUAL BOOKING INLINE FORM */}
+          {isManualBooking && (
+            <div className="p-6 border-b border-white/5 bg-zinc-950/50 animate-in fade-in slide-in-from-top-2 duration-200">
+              <form onSubmit={handleManualBooking} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date</label>
+                    <input 
+                      type="date" 
+                      required 
+                      className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50" 
+                      value={manualBookingData.date} 
+                      onChange={e => setManualBookingData({...manualBookingData, date: e.target.value})} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Time</label>
+                    <input 
+                      type="time" 
+                      required 
+                      className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50 [color-scheme:dark]" 
+                      value={manualBookingData.time} 
+                      onChange={e => setManualBookingData({...manualBookingData, time: e.target.value})} 
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Service Type</label>
+                  <input 
+                    type="text" 
+                    required 
+                    className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50" 
+                    placeholder="e.g. Consultation" 
+                    value={manualBookingData.service} 
+                    onChange={e => setManualBookingData({...manualBookingData, service: e.target.value})} 
+                  />
+                </div>
+                <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-11 mt-2">
+                  Confirm Manual Booking
+                </Button>
+              </form>
+            </div>
+          )}         
+
           <ScrollArea className="flex-1 p-6">             
-            <div className="flex flex-col gap-6">               
+            <div className="flex flex-col gap-6 pb-6">               
               <div className="flex flex-col gap-1.5 items-start w-[85%]">                 
                 <span className="text-xs font-bold text-zinc-500 ml-1 uppercase tracking-wider">Customer</span>                 
                 <div className="bg-white/10 border border-white/5 backdrop-blur-md text-zinc-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">                   
-                  <p className="text-sm leading-relaxed">{selectedLead?.incoming_message}</p>                 
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead?.incoming_message}</p>                 
                 </div>               
               </div>               
               <div className="flex flex-col gap-1.5 items-end w-[85%] self-end">                 
                 <span className="text-xs font-bold text-orange-500 mr-1 uppercase tracking-wider">AI Assistant</span>                 
                 <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-[0_4px_20px_rgba(249,115,22,0.3)]">                   
-                  <p className="text-sm leading-relaxed">{selectedLead?.ai_reply}</p>                 
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead?.ai_reply}</p>                 
                 </div>               
               </div>             
             </div>           
