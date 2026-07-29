@@ -5,46 +5,55 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Helper function to verify Meta's HMAC SHA-256 Signature
-function verifyMetaSignature(req) {
-  const signature = req.headers['x-hub-signature-256'];
+// 🚨 1. DISABLE VERCEL BODY PARSER TO PRESERVE RAW BUFFER
+const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+// Helper function to read raw request stream
+async function getRawBody(readable) {
+  const chunks = [];
+  for await (const chunk of readable) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
+// Helper function to verify Meta's HMAC SHA-256 Signature against RAW body
+function verifyMetaSignature(rawBody, signatureHeader) {
   const appSecret = process.env.META_APP_SECRET;
 
-  // If secret isn't configured yet, skip check
   if (!appSecret) {
-    console.warn("⚠️ META_APP_SECRET missing. Skipping signature check.");
+    console.warn("⚠️ META_APP_SECRET environment variable missing. Skipping signature check.");
     return true; 
   }
 
-  if (!signature) {
+  if (!signatureHeader) {
     console.error("❌ Missing X-Hub-Signature-256 header.");
     return false;
   }
 
   try {
-    // Reconstruct body safely
-    const payload = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-    
     const expectedHash = crypto
       .createHmac('sha256', appSecret)
-      .update(payload)
+      .update(rawBody)
       .digest('hex');
 
     const expectedSignature = `sha256=${expectedHash}`;
 
-    // Return true if signatures match
     return crypto.timingSafeEqual(
-      Buffer.from(signature),
+      Buffer.from(signatureHeader),
       Buffer.from(expectedSignature)
     );
   } catch (err) {
-    console.error("❌ Signature verification error:", err.message);
-    // Fallback: If Vercel object reordering caused stringify mismatch, log warning
+    console.error("❌ Signature verification failed:", err.message);
     return false;
   }
 }
 
-module.exports = async (req, res) => {
+const handler = async (req, res) => {
   // 1. THE HANDSHAKE (GET)
   if (req.method === 'GET') {
     const mode = req.query['hub.mode'];
@@ -61,13 +70,22 @@ module.exports = async (req, res) => {
 
   // 2. RECEIVING DATA FROM META (POST)
   if (req.method === 'POST') {
-    // 🚨 HMAC SECURITY CHECK: Reject unauthorized or spoofed requests
-    if (!verifyMetaSignature(req)) {
+    const rawBody = await getRawBody(req);
+    const signature = req.headers['x-hub-signature-256'];
+
+    // 🚨 HMAC SECURITY CHECK: Validate raw byte buffer against Meta's signature
+    if (!verifyMetaSignature(rawBody, signature)) {
       console.error("⛔ Unauthorized request: HMAC signature mismatch.");
       return res.status(401).send('Invalid signature');
     }
 
-    const body = req.body;
+    let body;
+    try {
+      body = JSON.parse(rawBody.toString('utf8'));
+    } catch (parseErr) {
+      console.error("❌ Failed to parse incoming webhook JSON body.");
+      return res.status(400).send('Invalid JSON');
+    }
 
     // THE OMNI-CHANNEL SWITCH: Accept both IG and FB Page data!
     if (body.object === 'instagram' || body.object === 'page') {
@@ -79,13 +97,11 @@ module.exports = async (req, res) => {
           const webhookEvent = entry.messaging[0];
           const senderId = webhookEvent.sender.id;
           
-          // 1. THE META KILL SWITCH: Check Meta's built-in echo flag
           if (webhookEvent.message && webhookEvent.message.is_echo) {
             console.log("🔇 Dropping Meta echo message.");
             continue; 
           }
 
-          // 2. THE DYNAMIC KILL SWITCH: Pull user_id along with account details
           const { data: clientCheck } = await supabase
             .from('clients')
             .select('user_id, ig_account_id, fb_page_id, meta_access_token')
@@ -102,7 +118,6 @@ module.exports = async (req, res) => {
             continue;
           }
 
-          // 3. PROCESS THE DM & FETCH REAL HANDLE
           if (webhookEvent.message && webhookEvent.message.text) {
             const messageId = webhookEvent.message.mid; 
             
@@ -117,7 +132,6 @@ module.exports = async (req, res) => {
               leadSource = "Meta Ad Click";
             }
 
-            // --- RESOLVE HANDLE VIA MESSAGE ID WORKAROUND ---
             let realHandle = senderId.toString(); 
             
             if (clientCheck && clientCheck.meta_access_token) {
@@ -151,7 +165,6 @@ module.exports = async (req, res) => {
               }
             }
             
-            // --- SAVE TO DATABASE WITH USER_ID STAMP ---
             const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
@@ -165,14 +178,14 @@ module.exports = async (req, res) => {
             }]);
 
             if (error && error.code === '23505') {
-              console.log("♻️ Race condition caught! The database blocked Meta's duplicate ping.");
+              console.log("♻️ Race condition caught! Database blocked Meta's duplicate ping.");
             } else if (error) {
               console.error("❌ Error inserting DM:", error);
             }
           }
         }
 
-       // --- B. CATCH PUBLIC COMMENTS (OMNI-CHANNEL) ---
+       // --- B. CATCH PUBLIC COMMENTS ---
         if (entry.changes && entry.changes[0]) {
           const change = entry.changes[0];
           
@@ -183,13 +196,7 @@ module.exports = async (req, res) => {
             const commentId = isIGComment ? change.value.id : change.value.comment_id;
             const commentText = isIGComment ? change.value.text : change.value.message;
             
-            if (!change.value.from) continue;
-
-            if (!commentText) {
-              console.log("🔇 Dropping comment because it contains no text payload.");
-              continue;
-            }
-
+            if (!change.value.from || !commentText) continue;
             if (change.value.from.id.toString() === businessId.toString()) continue;
 
             const commenterName = change.value.from.username || change.value.from.name || "User";
@@ -232,7 +239,7 @@ module.exports = async (req, res) => {
                 const endpoint = isIGComment ? 'replies' : 'comments';
                 const url = `https://graph.facebook.com/v18.0/${commentId}/${endpoint}`;
 
-                const response = await fetch(url, {
+                await fetch(url, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                   body: new URLSearchParams({
@@ -241,18 +248,11 @@ module.exports = async (req, res) => {
                   })
                 });
 
-                if (!response.ok) {
-                  const errorData = await response.json();
-                  console.error(`❌ Failed to post ${platformName} comment reply:`, JSON.stringify(errorData));
-                } else {
-                  console.log(`✅ Successfully replied to ${platformName} comment with: ${replyText}`);
-                }
-
                 if (cleanText.includes('demo')) {
                   const dmUrl = `https://graph.facebook.com/v18.0/me/messages`;
                   const dmText = "Hey! Here is the link to grab a spot on Wes's calendar: https://calendar.app.google/rbTHX427Am9dFxhN9 Let me know if you have any questions! 🚀";
 
-                  const dmResponse = await fetch(dmUrl, {
+                  await fetch(dmUrl, {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',
@@ -263,13 +263,6 @@ module.exports = async (req, res) => {
                       message: { text: dmText }
                     })
                   });
-
-                  if (!dmResponse.ok) {
-                    const errorText = await dmResponse.text();
-                    console.error(`❌ Failed to send Private DM for ${platformName}:`, errorText);
-                  } else {
-                    console.log(`✉️ Successfully slid into DMs for ${platformName} comment!`);
-                  }
                 }
               }
             } catch (error) {
@@ -284,3 +277,6 @@ module.exports = async (req, res) => {
     }
   }
 };
+
+module.exports = handler;
+module.exports.config = config;
