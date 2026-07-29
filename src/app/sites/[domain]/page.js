@@ -40,25 +40,30 @@ function BookingWidget({ userId, businessName, primaryColor, onSuccess }) {
     const appointmentDate = new Date(selectedDate);
     appointmentDate.setHours(hours, 0, 0, 0);
 
-    const { error } = await supabase
-      .from('appointments')
-      .insert([{
-        user_id: userId,
-        customer_name: formData.name,
-        customer_email: formData.email,
-        customer_phone: formData.phone,
-        notes: "Booked via Storefront Widget",
-        appointment_time: appointmentDate.toISOString(),
-        service_type: 'Storefront Booking',
-        status: 'confirmed'
-      }]);
+    try {
+      // Send the data securely to our backend to handle DB and Emails
+      const response = await fetch('/api/widget-booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          businessName: businessName,
+          customerName: formData.name,
+          customerEmail: formData.email,
+          customerPhone: formData.phone,
+          appointmentTime: appointmentDate.toISOString()
+        })
+      });
 
-    setLoading(false);
-    
-    if (!error) {
-      setStep(3);
-    } else {
-      alert("Something went wrong with the booking. Please try again.");
+      if (response.ok) {
+        setStep(3); // Show Success Screen
+      } else {
+        alert("Something went wrong with the booking. Please try again.");
+      }
+    } catch (err) {
+      alert("Network error. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
