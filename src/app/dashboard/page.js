@@ -1,7 +1,7 @@
 'use client'; 
 import { useEffect, useState } from 'react'; 
 import { createClient } from '@supabase/supabase-js'; 
-import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X, Database } from 'lucide-react';
+import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X, Database, Plus } from 'lucide-react';
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";  
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; 
@@ -34,8 +34,9 @@ export default function PremiumLeadDashboard() {
   const [showWelcome, setShowWelcome] = useState(false);
 
   // --- NATIVE MANUAL BOOKING STATE ---
-  const [isManualBooking, setIsManualBooking] = useState(false);
-  const [manualBookingData, setManualBookingData] = useState({ date: '', time: '', service: 'Manual Override' });
+  const [isManualBooking, setIsManualBooking] = useState(false); // For Lead Drawer
+  const [showGlobalBooking, setShowGlobalBooking] = useState(false); // For Calendar Tab
+  const [manualBookingData, setManualBookingData] = useState({ date: '', time: '', service: 'Consultation', customer_name: '', customer_email: '', customer_phone: '' });
 
   const router = useRouter();   
 
@@ -77,7 +78,7 @@ export default function PremiumLeadDashboard() {
   };
 
   // --- MANUAL BOOKING FUNCTION ---
-  const handleManualBooking = async (e) => {
+  const handleManualBooking = async (e, source = 'global') => {
     e.preventDefault();
     if (!manualBookingData.date || !manualBookingData.time) return;
 
@@ -85,23 +86,34 @@ export default function PremiumLeadDashboard() {
     const dateTimeString = `${manualBookingData.date}T${manualBookingData.time}:00`;
     const appointmentDate = new Date(dateTimeString);
 
-    const extracted = selectedLead?.extracted_data || {};
+    let finalName = manualBookingData.customer_name;
+    let finalEmail = manualBookingData.customer_email || null;
+    let finalPhone = manualBookingData.customer_phone || null;
+
+    // If booked from the chat drawer, auto-fill using the selected lead's data
+    if (source === 'drawer' && selectedLead) {
+      const extracted = selectedLead?.extracted_data || {};
+      finalName = selectedLead.ig_username || 'Manual Lead';
+      finalEmail = extracted.email !== 'Pending' ? extracted.email : null;
+      finalPhone = extracted.phone !== 'Pending' ? extracted.phone : null;
+    }
 
     const { error } = await supabase
       .from('appointments')
       .insert([{
         user_id: userId,
-        customer_name: selectedLead?.ig_username || 'Manual Lead',
-        customer_email: extracted.email !== 'Pending' ? extracted.email : null,
-        customer_phone: extracted.phone !== 'Pending' ? extracted.phone : null,
+        customer_name: finalName || 'Direct Lead',
+        customer_email: finalEmail,
+        customer_phone: finalPhone,
         appointment_time: appointmentDate.toISOString(),
-        service_type: manualBookingData.service,
+        service_type: manualBookingData.service || 'Manual Override',
         status: 'confirmed'
       }]);
 
     if (!error) {
       setIsManualBooking(false);
-      setManualBookingData({ date: '', time: '', service: 'Manual Override' });
+      setShowGlobalBooking(false);
+      setManualBookingData({ date: '', time: '', service: 'Consultation', customer_name: '', customer_email: '', customer_phone: '' });
       // We don't need to manually update state here because the realtime listener will catch it!
     } else {
       alert('Error booking appointment manually.');
@@ -236,6 +248,13 @@ export default function PremiumLeadDashboard() {
     { name: 'Warm Leads', value: leads.filter(l => l.extracted_data?.status === 'Warm').length, color: '#e0c61b' },      
     { name: 'Cold Leads', value: leads.filter(l => l.extracted_data?.status === 'Cold').length, color: '#0808fa' },    
   ].filter(item => item.value > 0);    
+
+  // --- TRAFFIC SOURCES DATA ---
+  const sourceData = [
+    { name: 'Instagram', value: leads.filter(l => l.platform?.toLowerCase() === 'instagram').length, color: '#ec4899' },
+    { name: 'Facebook', value: leads.filter(l => l.platform?.toLowerCase() === 'facebook').length, color: '#3b82f6' },
+    { name: 'Website', value: leads.filter(l => l.platform?.toLowerCase() === 'website' || l.platform?.toLowerCase() === 'web').length, color: '#10b981' }
+  ].filter(item => item.value > 0);
 
   const filteredLeads = leads.filter(l => {     
     if (!searchTerm) return true;     
@@ -495,27 +514,25 @@ export default function PremiumLeadDashboard() {
                   )}                 
                 </CardContent>               
               </Card>               
+              
+              {/* --- NEW TRAFFIC SOURCES CHART --- */}
               <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">                 
-                <CardHeader className="pb-0">                   
-                  <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Active Platforms</CardTitle>                 
+                <CardHeader className="pb-2">                   
+                  <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Traffic Sources</CardTitle>                 
                 </CardHeader>                 
-                <CardContent className="h-[180px] pt-4">                   
-                  <div className="flex flex-col gap-4 mt-2">
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/40 border border-white/5">
-                      <div className="flex items-center gap-2 text-white text-sm font-medium">
-                        <Globe className="w-4 h-4 text-green-400" /> Website Storefront
-                      </div>
-                      <Badge className={isSubscribed ? "bg-green-500/20 text-green-400 border-none" : "bg-orange-500/20 text-orange-400 border-none"}>
-                        {isSubscribed ? "Active" : "Pending"}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-xl bg-zinc-900/40 border border-white/5 opacity-50">
-                      <div className="flex items-center gap-2 text-zinc-400 text-sm font-medium">
-                        <Smartphone className="w-4 h-4 text-pink-400" /> Instagram Bot
-                      </div>
-                      <Badge variant="outline" className="text-zinc-500 border-zinc-700">Sandbox</Badge>
-                    </div>
-                  </div>
+                <CardContent className="h-[220px] flex items-center justify-center">                   
+                  {loading || sourceData.length === 0 ? (
+                    <div className="text-zinc-500 text-sm font-medium">No traffic data yet</div>
+                  ) : (                     
+                    <ResponsiveContainer width="100%" height="100%">                       
+                      <PieChart>                         
+                        <Pie data={sourceData} innerRadius={45} outerRadius={70} paddingAngle={5} dataKey="value" stroke="none">                           
+                          {sourceData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}                         
+                        </Pie>                         
+                        <RechartsTooltip contentStyle={{ backgroundColor: 'rgba(24, 24, 27, 0.9)', borderColor: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)', color: '#fff', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} />                       
+                      </PieChart>                     
+                    </ResponsiveContainer>                   
+                  )}                 
                 </CardContent>               
               </Card>             
             </div>             
@@ -635,6 +652,70 @@ export default function PremiumLeadDashboard() {
                   {/* TAB 2: NATIVE AI SCHEDULER VIEW */}
                   {activeTab === 'calendar' && (
                     <div className="p-6 space-y-4 animate-in fade-in duration-200">
+                      
+                      {/* --- GLOBAL MANUAL BOOKING TOP BAR --- */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white/5 p-4 rounded-xl border border-white/10 mb-6 gap-4">
+                        <div>
+                          <h3 className="text-white font-bold">Manage Schedule</h3>
+                          <p className="text-sm text-zinc-400">View or manually add appointments.</p>
+                        </div>
+                        <Button 
+                          onClick={() => setShowGlobalBooking(!showGlobalBooking)} 
+                          className="bg-orange-500 hover:bg-orange-600 text-white font-bold w-full sm:w-auto"
+                        >
+                          {showGlobalBooking ? <X className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />} 
+                          {showGlobalBooking ? "Cancel" : "Add Appointment"}
+                        </Button>
+                      </div>
+
+                      {/* GLOBAL BOOKING INLINE FORM */}
+                      {showGlobalBooking && (
+                        <div className="p-6 mb-6 border border-white/10 bg-zinc-900 rounded-xl animate-in fade-in slide-in-from-top-2">
+                          <form onSubmit={(e) => handleManualBooking(e, 'global')} className="space-y-4">
+                            <h4 className="font-bold text-white mb-2">Create New Appointment</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <Input 
+                                required 
+                                placeholder="Customer Name" 
+                                value={manualBookingData.customer_name} 
+                                onChange={e => setManualBookingData({...manualBookingData, customer_name: e.target.value})} 
+                                className="bg-zinc-950 border-white/10 text-white" 
+                              />
+                              <Input 
+                                type="email" 
+                                placeholder="Email Address (Optional)" 
+                                value={manualBookingData.customer_email} 
+                                onChange={e => setManualBookingData({...manualBookingData, customer_email: e.target.value})} 
+                                className="bg-zinc-950 border-white/10 text-white" 
+                              />
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase">Date</label>
+                                <input 
+                                  type="date" 
+                                  required 
+                                  className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50 [color-scheme:dark]" 
+                                  value={manualBookingData.date} 
+                                  onChange={e => setManualBookingData({...manualBookingData, date: e.target.value})} 
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold text-zinc-500 uppercase">Time</label>
+                                <input 
+                                  type="time" 
+                                  required 
+                                  className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50 [color-scheme:dark]" 
+                                  value={manualBookingData.time} 
+                                  onChange={e => setManualBookingData({...manualBookingData, time: e.target.value})} 
+                                />
+                              </div>
+                            </div>
+                            <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white mt-2 font-bold h-11">
+                              Save Appointment
+                            </Button>
+                          </form>
+                        </div>
+                      )}
+
                       {appointments.length === 0 ? (
                         <div className="text-center py-20 text-zinc-500 flex flex-col items-center justify-center gap-2 bg-zinc-900/10 rounded-xl border border-dashed border-white/5">
                           <CalendarIcon className="w-10 h-10 opacity-30 text-orange-500 mb-2" />
@@ -737,17 +818,17 @@ export default function PremiumLeadDashboard() {
             </div>           
           </SheetHeader>  
 
-          {/* MANUAL BOOKING INLINE FORM */}
+          {/* MANUAL BOOKING INLINE FORM (Lead Drawer) */}
           {isManualBooking && (
             <div className="p-6 border-b border-white/5 bg-zinc-950/50 animate-in fade-in slide-in-from-top-2 duration-200">
-              <form onSubmit={handleManualBooking} className="space-y-4">
+              <form onSubmit={(e) => handleManualBooking(e, 'drawer')} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Date</label>
                     <input 
                       type="date" 
                       required 
-                      className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50" 
+                      className="w-full bg-zinc-900 border border-white/10 rounded-lg p-2.5 text-sm text-white outline-none focus:border-orange-500/50 [color-scheme:dark]" 
                       value={manualBookingData.date} 
                       onChange={e => setManualBookingData({...manualBookingData, date: e.target.value})} 
                     />
