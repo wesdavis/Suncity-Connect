@@ -229,7 +229,7 @@ const handler = async (req, res) => {
               if (cleanText.includes('demo')) {
                 replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
               } else { 
-                const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
                 const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
                 const result = await model.generateContent(prompt);
                 replyText = result.response.text().trim();
