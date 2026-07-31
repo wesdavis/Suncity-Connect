@@ -214,9 +214,26 @@ const handler = async (req, res) => {
             try {
               const { data: client } = await supabase
                 .from('clients')
-                .select('meta_access_token, is_bot_active')
+                .select('user_id, meta_access_token, is_bot_active')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
+
+              // 🚨 FIX: Save the comment to the CRM Inbox so it appears on the dashboard!
+              const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
+                ig_username: commenterName, 
+                incoming_message: commentText,
+                status: 'pending',
+                business_ig_id: businessId.toString(),
+                meta_message_id: commentId, 
+                platform: platformName,
+                lead_source: `${platformName} Comment`,
+                meta_sender_id: change.value.from.id.toString(),
+                user_id: client?.user_id || null
+              }]);
+
+              if (inboxError && inboxError.code !== '23505') {
+                console.error("❌ Error inserting comment into CRM inbox:", inboxError);
+              }
 
               if (client && client.is_bot_active === false) {
                  console.log(`⏸️ Bot is PAUSED. Dropping comment reply.`);
