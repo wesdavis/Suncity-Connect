@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -73,7 +73,7 @@ const handler = async (req, res) => {
     const rawBody = await getRawBody(req);
     const signature = req.headers['x-hub-signature-256'];
 
-    // 🚨 HMAC SECURITY CHECK RESTORED
+    // 🚨 HMAC SECURITY CHECK
     if (!verifyMetaSignature(rawBody, signature)) {
       console.error("⛔ Unauthorized request: HMAC signature mismatch.");
       return res.status(401).send('Invalid signature');
@@ -212,24 +212,25 @@ const handler = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
+              // 🚨 QUERY DYNAMIC CLIENT BOOKING LINKS
               const { data: client } = await supabase
                 .from('clients')
-                .select('user_id, meta_access_token, is_bot_active')
+                .select('user_id, meta_access_token, is_bot_active, booking_link, calendar_url, business_name')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
-              // Inside meta-webhook.js (Comment Handling)
-const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
-  ig_username: commenterName, 
-  incoming_message: commentText,
-  status: 'replied', // 👈 Keeps it in the CRM without triggering sales-bot.js
-  business_ig_id: businessId.toString(),
-  comment_id: commentId,
-  platform: platformName,
-  lead_source: `${platformName} Comment`,
-  meta_sender_id: change.value.from.id.toString(),
-  user_id: client?.user_id || null
-}]);
+              // Insert comment into inbox as 'replied' so sales-bot.js ignores it
+              const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
+                ig_username: commenterName, 
+                incoming_message: commentText,
+                status: 'replied',
+                business_ig_id: businessId.toString(),
+                comment_id: commentId,
+                platform: platformName,
+                lead_source: `${platformName} Comment`,
+                meta_sender_id: change.value.from.id.toString(),
+                user_id: client?.user_id || null
+              }]);
 
               if (inboxError && inboxError.code !== '23505') {
                 console.error("❌ Error inserting comment into CRM inbox:", inboxError);
@@ -240,21 +241,48 @@ const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
                  continue; 
               }
 
-              let replyText = "";
-              const cleanText = commentText.toLowerCase().trim();
+              // 🚨 DYNAMIC AI INTENT CLASSIFICATION SCHEMA
+              const responseSchema = {
+                type: SchemaType.OBJECT,
+                properties: {
+                  should_send_dm: {
+                    type: SchemaType.BOOLEAN,
+                    description: "True ONLY if the user's comment shows intent to book, buy, learn more, or request a link/demo."
+                  },
+                  public_reply_text: {
+                    type: SchemaType.STRING,
+                    description: "Under 10 words, highly energetic, use emojis. If should_send_dm is true, tell them to check their DMs. If false, reply warmly without mentioning DMs."
+                  }
+                },
+                required: ["should_send_dm", "public_reply_text"]
+              };
 
-              if (cleanText.includes('demo')) {
-                replyText = `Hey @${commenterName}! Awesome, we just sent you a DM with the link to grab a time on Wes's calendar! 🚀`;
-              } else { 
-                const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
-                const prompt = `You are replying to a public ${platformName} comment for Sun City Connect. Keep it under 10 words, highly energetic, and use emojis. The user commented: "${commentText}"`;
-                const result = await model.generateContent(prompt);
-                replyText = result.response.text().trim();
+              const model = genAI.getGenerativeModel({ 
+                model: "gemini-3.5-flash-lite",
+                generationConfig: {
+                  responseMimeType: "application/json",
+                  responseSchema: responseSchema
+                }
+              });
+
+              const prompt = `Evaluate this public ${platformName} comment left on ${client?.business_name || 'Sun City Connect'}'s page: "${commentText}"`;
+              const result = await model.generateContent(prompt);
+              
+              let aiDecision;
+              try {
+                aiDecision = JSON.parse(result.response.text());
+              } catch (e) {
+                console.error("Failed to parse Gemini intent JSON:", e);
+                aiDecision = { should_send_dm: false, public_reply_text: "Thanks for commenting! 🚀" };
               }
 
+              const replyText = aiDecision.public_reply_text;
+              const isLeadIntent = aiDecision.should_send_dm;
+
               if (client && client.meta_access_token) {
+                // 1. Post Public Reply
                 const endpoint = isIGComment ? 'replies' : 'comments';
-                const url = `https://graph.facebook.com/v18.0/${commentId}/${endpoint}`;
+                const url = `https://graph.facebook.com/v25.0/${commentId}/${endpoint}`;
 
                 await fetch(url, {
                   method: 'POST',
@@ -265,9 +293,11 @@ const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
                   })
                 });
 
-                if (cleanText.includes('demo')) {
-                  const dmUrl = `https://graph.facebook.com/v18.0/me/messages`;
-                  const dmText = "Hey! Here is the link to grab a spot on Wes's calendar: https://calendar.app.google/rbTHX427Am9dFxhN9 Let me know if you have any questions! 🚀";
+                // 2. Send Private DM using the onboarded client's dynamic booking link
+                if (isLeadIntent) {
+                  const dynamicLink = client.booking_link || client.calendar_url || 'https://suncityconnect.com';
+                  const dmUrl = `https://graph.facebook.com/v25.0/me/messages`;
+                  const dmText = `Hey! Here is the link to grab a spot on our calendar: ${dynamicLink} Let us know if you have any questions! 🚀`;
 
                   await fetch(dmUrl, {
                     method: 'POST',
