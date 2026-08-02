@@ -204,9 +204,10 @@ const handler = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
+              // 🚨 FIX 1: Queried fb_page_id explicitly for the DM routing
               const { data: client } = await supabase
                 .from('clients')
-                .select('user_id, meta_access_token, is_bot_active, website_link, custom_domain, business_name')
+                .select('user_id, meta_access_token, is_bot_active, website_link, custom_domain, business_name, fb_page_id')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
@@ -215,7 +216,6 @@ const handler = async (req, res) => {
                  continue; 
               }
 
-              // 🚨 SMART AI SCHEMA: Conversational context, zero calendar mentions.
               const responseSchema = {
                 type: SchemaType.OBJECT,
                 properties: {
@@ -261,14 +261,12 @@ const handler = async (req, res) => {
               const replyText = aiDecision.public_reply_text;
               const isLeadIntent = aiDecision.should_send_dm;
 
-              // Build the smart text dynamically for the business
               const targetLink = client?.website_link || 
                                  (client?.custom_domain ? `https://${client.custom_domain}` : null) || 
                                  'www.suncityconnect.com';
 
               const smartDmText = `${aiDecision.private_dm_text} You can find out more right here: ${targetLink} 🚀`;
 
-              // 🚨 CRITICAL FIX: Adding `extracted_data` so the Dashboard doesn't hide the comment!
               const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
                 ig_username: commenterName, 
                 incoming_message: commentText,
@@ -307,9 +305,10 @@ const handler = async (req, res) => {
                   })
                 });
 
-                // 2. Send Smart DM Response (Safely handles both FB & IG natively!)
+                // 2. Send Smart DM Response 
                 if (isLeadIntent) {
-                  const dmUrl = `https://graph.facebook.com/v25.0/${businessId}/messages`;
+                  // 🚨 FIX 2: Hardcoded fb_page_id to satisfy Meta's Private Replies API requirements
+                  const dmUrl = `https://graph.facebook.com/v25.0/${client.fb_page_id}/messages`;
 
                   await fetch(dmUrl, {
                     method: 'POST',
