@@ -5,14 +5,12 @@ const { GoogleGenerativeAI, SchemaType } = require('@google/generative-ai');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// 🚨 1. DISABLE VERCEL BODY PARSER TO PRESERVE RAW BUFFER
 const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// Helper function to read raw request stream
 async function getRawBody(readable) {
   const chunks = [];
   for await (const chunk of readable) {
@@ -21,7 +19,6 @@ async function getRawBody(readable) {
   return Buffer.concat(chunks);
 }
 
-// Helper function to verify Meta's HMAC SHA-256 Signature against RAW body
 function verifyMetaSignature(rawBody, signatureHeader) {
   const appSecret = process.env.META_APP_SECRET;
 
@@ -73,7 +70,6 @@ const handler = async (req, res) => {
     const rawBody = await getRawBody(req);
     const signature = req.headers['x-hub-signature-256'];
 
-    // 🚨 HMAC SECURITY CHECK
     if (!verifyMetaSignature(rawBody, signature)) {
       console.error("⛔ Unauthorized request: HMAC signature mismatch.");
       return res.status(401).send('Invalid signature');
@@ -87,7 +83,6 @@ const handler = async (req, res) => {
       return res.status(400).send('Invalid JSON');
     }
 
-    // THE OMNI-CHANNEL SWITCH: Accept both IG and FB Page data!
     if (body.object === 'instagram' || body.object === 'page') {
       for (const entry of body.entry) {
         const businessId = entry.id; 
@@ -212,49 +207,35 @@ const handler = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
-              // 🚨 QUERY DYNAMIC CLIENT BOOKING LINKS
               const { data: client } = await supabase
                 .from('clients')
-                .select('user_id, meta_access_token, is_bot_active, booking_link, calendar_url, business_name')
+                .select('user_id, meta_access_token, is_bot_active, website_link, booking_link, custom_domain, business_name')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
-
-              // Insert comment into inbox as 'replied' so sales-bot.js ignores it
-              const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
-                ig_username: commenterName, 
-                incoming_message: commentText,
-                status: 'replied',
-                business_ig_id: businessId.toString(),
-                comment_id: commentId,
-                platform: platformName,
-                lead_source: `${platformName} Comment`,
-                meta_sender_id: change.value.from.id.toString(),
-                user_id: client?.user_id || null
-              }]);
-
-              if (inboxError && inboxError.code !== '23505') {
-                console.error("❌ Error inserting comment into CRM inbox:", inboxError);
-              }
 
               if (client && client.is_bot_active === false) {
                  console.log(`⏸️ Bot is PAUSED. Dropping comment reply.`);
                  continue; 
               }
 
-              // 🚨 DYNAMIC AI INTENT CLASSIFICATION SCHEMA
+              // 🚨 ENHANCED AI SCHEMA: Generates both public reply & smart DM text
               const responseSchema = {
                 type: SchemaType.OBJECT,
                 properties: {
                   should_send_dm: {
                     type: SchemaType.BOOLEAN,
-                    description: "True ONLY if the user's comment shows intent to book, buy, learn more, or request a link/demo."
+                    description: "True if the comment shows interest in learning more, buying, booking, or asking a question."
                   },
                   public_reply_text: {
                     type: SchemaType.STRING,
-                    description: "Under 10 words, highly energetic, use emojis. If should_send_dm is true, tell them to check their DMs. If false, reply warmly without mentioning DMs."
+                    description: "Under 10 words, highly energetic, use emojis. If sending a DM, mention checking DMs."
+                  },
+                  private_dm_text: {
+                    type: SchemaType.STRING,
+                    description: "Friendly 1-2 sentence DM addressing their specific comment topic warmly before sharing the link."
                   }
                 },
-                required: ["should_send_dm", "public_reply_text"]
+                required: ["should_send_dm", "public_reply_text", "private_dm_text"]
               };
 
               const model = genAI.getGenerativeModel({ 
@@ -273,14 +254,52 @@ const handler = async (req, res) => {
                 aiDecision = JSON.parse(result.response.text());
               } catch (e) {
                 console.error("Failed to parse Gemini intent JSON:", e);
-                aiDecision = { should_send_dm: false, public_reply_text: "Thanks for commenting! 🚀" };
+                aiDecision = { 
+                  should_send_dm: true, 
+                  public_reply_text: "Check your DMs now! 🚀✨",
+                  private_dm_text: "Hey! Thanks for reaching out!"
+                };
               }
 
               const replyText = aiDecision.public_reply_text;
               const isLeadIntent = aiDecision.should_send_dm;
 
+              // Determine target link
+              const targetLink = client?.website_link || 
+                                 (client?.custom_domain ? `https://${client.custom_domain}` : null) || 
+                                 client?.booking_link || 
+                                 'www.suncityconnect.com';
+
+              // Construct the Smart DM payload
+              const smartDmText = `${aiDecision.private_dm_text} You can find out more right here: ${targetLink} 🚀`;
+
+              // 🚨 CRITICAL FIX: Populating extracted_data so dashboard query .not('extracted_data', 'is', null) captures it!
+              const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
+                ig_username: commenterName, 
+                incoming_message: commentText,
+                ai_reply: replyText,
+                status: 'replied',
+                business_ig_id: businessId.toString(),
+                comment_id: commentId,
+                platform: platformName,
+                lead_source: `${platformName} Comment`,
+                meta_sender_id: change.value.from.id.toString(),
+                user_id: client?.user_id || null,
+                extracted_data: {
+                  intent: "Comment Inquiry",
+                  phone: "Pending",
+                  email: "Pending",
+                  timeline: "Immediate",
+                  status: isLeadIntent ? "Hot" : "Warm"
+                }
+              }]);
+
+              if (inboxError && inboxError.code !== '23505') {
+                console.error("❌ Error inserting comment into CRM inbox:", inboxError);
+              }
+
               if (client && client.meta_access_token) {
-                // 1. Post Public Reply
+                // 1. Send Public Comment Reply
                 const endpoint = isIGComment ? 'replies' : 'comments';
                 const url = `https://graph.facebook.com/v25.0/${commentId}/${endpoint}`;
 
@@ -293,11 +312,9 @@ const handler = async (req, res) => {
                   })
                 });
 
-                // 2. Send Private DM using the onboarded client's dynamic booking link
+                // 2. Send Smart DM Response
                 if (isLeadIntent) {
-                  const dynamicLink = client.booking_link || client.calendar_url || 'https://suncityconnect.com';
                   const dmUrl = `https://graph.facebook.com/v25.0/me/messages`;
-                  const dmText = `Hey! Here is the link to grab a spot on our calendar: ${dynamicLink} Let us know if you have any questions! 🚀`;
 
                   await fetch(dmUrl, {
                     method: 'POST',
@@ -307,7 +324,7 @@ const handler = async (req, res) => {
                     },
                     body: JSON.stringify({
                       recipient: { comment_id: commentId },
-                      message: { text: dmText }
+                      message: { text: smartDmText }
                     })
                   });
                 }
