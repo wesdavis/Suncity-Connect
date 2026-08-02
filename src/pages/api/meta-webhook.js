@@ -86,7 +86,6 @@ const handler = async (req, res) => {
     if (body.object === 'instagram' || body.object === 'page') {
       for (const entry of body.entry) {
         
-        // 🚨 OMNICHANNEL ROUTING ID (Either FB Page ID or IG Account ID)
         const businessId = entry.id; 
 
         // --- A. CATCH DIRECT MESSAGES ---
@@ -157,6 +156,7 @@ const handler = async (req, res) => {
               }
             }
             
+            // 🚨 FIX: Added `extracted_data` placeholder so standard DMs instantly appear on the CRM
             const { error } = await supabase.from('b2b_inbox').insert([{
               ig_username: realHandle, 
               incoming_message: webhookEvent.message.text,
@@ -166,7 +166,14 @@ const handler = async (req, res) => {
               platform: platformName,
               lead_source: leadSource,
               meta_sender_id: senderId.toString(),
-              user_id: clientCheck?.user_id || null
+              user_id: clientCheck?.user_id || null,
+              extracted_data: {
+                intent: "Pending AI Analysis",
+                phone: "Pending",
+                email: "Pending",
+                timeline: "Pending",
+                status: "Warm"
+              }
             }]);
 
             if (error && error.code === '23505') {
@@ -204,7 +211,6 @@ const handler = async (req, res) => {
             console.log(`💬 Received ${platformName} Comment from @${commenterName}: ${commentText}`);
             
             try {
-              // 🚨 FIX 1: Queried fb_page_id explicitly for the DM routing
               const { data: client } = await supabase
                 .from('clients')
                 .select('user_id, meta_access_token, is_bot_active, website_link, custom_domain, business_name, fb_page_id')
@@ -307,7 +313,6 @@ const handler = async (req, res) => {
 
                 // 2. Send Smart DM Response 
                 if (isLeadIntent) {
-                  // 🚨 FIX 2: Hardcoded fb_page_id to satisfy Meta's Private Replies API requirements
                   const dmUrl = `https://graph.facebook.com/v25.0/${client.fb_page_id}/messages`;
 
                   await fetch(dmUrl, {

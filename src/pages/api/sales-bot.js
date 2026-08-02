@@ -2,7 +2,6 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { Resend } = require('resend');
-const msg = req.body.record;
 
 // Initialize our communication tools using your Vercel Environment Variables
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -16,7 +15,7 @@ module.exports = async (req, res) => {
   try {
     const msg = req.body.record;
 
-    // 🚨 ⬇️ REPLACE YOUR OLD IF CHECK WITH THIS NEW GUARDRAIL ⬇️
+    // 🚨 GUARDRAIL: Ignore non-pending messages AND public comments
     if (
       !msg || 
       msg.status !== 'pending' || 
@@ -25,7 +24,6 @@ module.exports = async (req, res) => {
     ) {
       return res.status(200).json({ message: "Ignored - Not a pending DM" });
     }
-    // 🚨 ⬆️ END GUARDRAIL ⬆️
 
     console.log(`Processing new message: "${msg.incoming_message}"`);
 
@@ -139,11 +137,6 @@ module.exports = async (req, res) => {
             required: ["customer_name", "appointment_time"]
           }
         }
-        
-
-        
-
-
       ];
 
       // --- 2. DYNAMIC CASHIER INJECTION ---
@@ -181,8 +174,6 @@ module.exports = async (req, res) => {
 
       const salesTools = [{ functionDeclarations }];
 
-      // --- ⏰ TIMEZONE & HOURS AWARENESS ---
-      // This grabs the exact current time formatted like "Monday, 10:15 PM"
       const currentLocalTime = new Date().toLocaleString('en-US', {
         timeZone: client.timezone || 'America/Denver',
         weekday: 'long',
@@ -213,7 +204,7 @@ module.exports = async (req, res) => {
       1. KEEP IT PUNCHY: You are in an Instagram DM. Use 2-3 short, conversational sentences max.
       2. SMS ACTION: If the customer asks for a text or provides a phone number for info, USE the send_sms tool. 
       3. EMAIL ACTION: If the customer asks for an email or provides an email address, USE the send_email tool.
-      4. THE DEMO TRIGGER: If the customer's message contains the word "DEMO", immediately reply with: "Awesome! Let's get your custom bot built. Grab a quick time on Wes's calendar here: https://calendar.app.google/rbTHX427Am9dFxhN9" and stop asking questions.
+      4. APPOINTMENT ACTION: If the customer asks to book a consultation or appointment, USE the book_appointment tool. 
       5. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. ${dynamicCashierRule}
 
       --- RECENT CONVERSATION (Memory) ---
@@ -334,7 +325,6 @@ module.exports = async (req, res) => {
           }
         }
 
-        // --- TOOL: NATIVE BOOKING ---
         else if (call.name === "book_appointment") {
           const { customer_name, customer_email, customer_phone, appointment_time, service_type } = call.args;
 
@@ -387,9 +377,6 @@ module.exports = async (req, res) => {
             }
           }
         }
-
-
-        
         else {
           console.error(`⚠️ AI Hallucination Caught: Attempted to call unknown tool '${call.name}'`);
           aiReply = "Give me just a second to figure that out! If I can't, I'll have a human team member jump in.";
@@ -437,7 +424,10 @@ module.exports = async (req, res) => {
       message: { text: aiReply }
     };
 
-    const metaResponse = await fetch('https://graph.facebook.com/v25.0/me/messages', {
+    // 🚨 FIX: Routed strictly through fb_page_id to satisfy Meta's v25.0 Omni-channel restrictions
+    const dmUrl = `https://graph.facebook.com/v25.0/${client.fb_page_id}/messages`;
+
+    const metaResponse = await fetch(dmUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
