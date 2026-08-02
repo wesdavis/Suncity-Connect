@@ -85,6 +85,8 @@ const handler = async (req, res) => {
 
     if (body.object === 'instagram' || body.object === 'page') {
       for (const entry of body.entry) {
+        
+        // 🚨 OMNICHANNEL ROUTING ID (Either FB Page ID or IG Account ID)
         const businessId = entry.id; 
 
         // --- A. CATCH DIRECT MESSAGES ---
@@ -138,7 +140,6 @@ const handler = async (req, res) => {
                   if (profileRes.ok) {
                     const profileData = await profileRes.json();
                     realHandle = profileData.username || profileData.name || senderId.toString();
-                    console.log(`👤 Resolved IG Handle: @${realHandle}`);
                   }
                 } else {
                   const msgUrl = `https://graph.facebook.com/v25.0/${messageId}?fields=from&access_token=${clientCheck.meta_access_token}`;
@@ -148,11 +149,7 @@ const handler = async (req, res) => {
                     const msgData = await msgRes.json();
                     if (msgData.from && msgData.from.name) {
                       realHandle = msgData.from.name;
-                      console.log(`👤 Resolved FB Name via Message: ${realHandle}`);
                     }
-                  } else {
-                     const errJson = await msgRes.json().catch(() => ({}));
-                     console.warn(`⚠️ Meta API message fetch restricted. Reason: ${errJson.error?.message || 'Permission Restricted'}`);
                   }
                 }
               } catch (e) {
@@ -209,7 +206,7 @@ const handler = async (req, res) => {
             try {
               const { data: client } = await supabase
                 .from('clients')
-                .select('user_id, meta_access_token, is_bot_active, website_link, booking_link, custom_domain, business_name')
+                .select('user_id, meta_access_token, is_bot_active, website_link, custom_domain, business_name')
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
@@ -218,7 +215,7 @@ const handler = async (req, res) => {
                  continue; 
               }
 
-              // 🚨 ENHANCED AI SCHEMA: Generates both public reply & smart DM text
+              // 🚨 SMART AI SCHEMA: Conversational context, zero calendar mentions.
               const responseSchema = {
                 type: SchemaType.OBJECT,
                 properties: {
@@ -232,7 +229,7 @@ const handler = async (req, res) => {
                   },
                   private_dm_text: {
                     type: SchemaType.STRING,
-                    description: "Friendly 1-2 sentence DM addressing their specific comment topic warmly before sharing the link."
+                    description: "A friendly 1-2 sentence greeting acknowledging their specific comment. Do NOT mention calendars, booking, or spots. Keep it conversational."
                   }
                 },
                 required: ["should_send_dm", "public_reply_text", "private_dm_text"]
@@ -264,16 +261,14 @@ const handler = async (req, res) => {
               const replyText = aiDecision.public_reply_text;
               const isLeadIntent = aiDecision.should_send_dm;
 
-              // Determine target link
+              // Build the smart text dynamically for the business
               const targetLink = client?.website_link || 
                                  (client?.custom_domain ? `https://${client.custom_domain}` : null) || 
-                                 client?.booking_link || 
                                  'www.suncityconnect.com';
 
-              // Construct the Smart DM payload
               const smartDmText = `${aiDecision.private_dm_text} You can find out more right here: ${targetLink} 🚀`;
 
-              // 🚨 CRITICAL FIX: Populating extracted_data so dashboard query .not('extracted_data', 'is', null) captures it!
+              // 🚨 CRITICAL FIX: Adding `extracted_data` so the Dashboard doesn't hide the comment!
               const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
                 ig_username: commenterName, 
                 incoming_message: commentText,
@@ -301,9 +296,9 @@ const handler = async (req, res) => {
               if (client && client.meta_access_token) {
                 // 1. Send Public Comment Reply
                 const endpoint = isIGComment ? 'replies' : 'comments';
-                const url = `https://graph.facebook.com/v25.0/${commentId}/${endpoint}`;
+                const publicUrl = `https://graph.facebook.com/v25.0/${commentId}/${endpoint}`;
 
-                await fetch(url, {
+                await fetch(publicUrl, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                   body: new URLSearchParams({
@@ -312,9 +307,9 @@ const handler = async (req, res) => {
                   })
                 });
 
-                // 2. Send Smart DM Response
+                // 2. Send Smart DM Response (Safely handles both FB & IG natively!)
                 if (isLeadIntent) {
-                  const dmUrl = `https://graph.facebook.com/v25.0/me/messages`;
+                  const dmUrl = `https://graph.facebook.com/v25.0/${businessId}/messages`;
 
                   await fetch(dmUrl, {
                     method: 'POST',
