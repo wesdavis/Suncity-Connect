@@ -218,18 +218,18 @@ const handler = async (req, res) => {
                 .or(`ig_account_id.eq.${businessId},fb_page_id.eq.${businessId}`)
                 .single();
 
-              // 🚨 FIX: Save the comment to the CRM Inbox so it appears on the dashboard!
-              const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
-                ig_username: commenterName, 
-                incoming_message: commentText,
-                status: 'pending',
-                business_ig_id: businessId.toString(),
-                meta_message_id: commentId, 
-                platform: platformName,
-                lead_source: `${platformName} Comment`,
-                meta_sender_id: change.value.from.id.toString(),
-                user_id: client?.user_id || null
-              }]);
+              // Inside meta-webhook.js (Comment Handling)
+const { error: inboxError } = await supabase.from('b2b_inbox').insert([{
+  ig_username: commenterName, 
+  incoming_message: commentText,
+  status: 'replied', // 👈 Keeps it in the CRM without triggering sales-bot.js
+  business_ig_id: businessId.toString(),
+  comment_id: commentId,
+  platform: platformName,
+  lead_source: `${platformName} Comment`,
+  meta_sender_id: change.value.from.id.toString(),
+  user_id: client?.user_id || null
+}]);
 
               if (inboxError && inboxError.code !== '23505') {
                 console.error("❌ Error inserting comment into CRM inbox:", inboxError);

@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { Resend } = require('resend');
+const msg = req.body.record;
 
 // Initialize our communication tools using your Vercel Environment Variables
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -15,9 +16,16 @@ module.exports = async (req, res) => {
   try {
     const msg = req.body.record;
 
-    if (!msg || msg.status !== 'pending') {
-      return res.status(200).json({ message: "Ignored - Not a pending message" });
+    // 🚨 ⬇️ REPLACE YOUR OLD IF CHECK WITH THIS NEW GUARDRAIL ⬇️
+    if (
+      !msg || 
+      msg.status !== 'pending' || 
+      msg.comment_id || 
+      (msg.lead_source && msg.lead_source.includes('Comment'))
+    ) {
+      return res.status(200).json({ message: "Ignored - Not a pending DM" });
     }
+    // 🚨 ⬆️ END GUARDRAIL ⬆️
 
     console.log(`Processing new message: "${msg.incoming_message}"`);
 
