@@ -551,13 +551,13 @@ export default function SplashPage() {
                   </li>
                 </ul>
                 <div className="mt-8 flex items-center gap-3 text-xs text-zinc-500">
-                  <ShieldCheck className="w-4 h-4" /> 14-day money-back guarantee • Cancel anytime
+                  <ShieldCheck className="w-4 h-4" /> Cancel anytime!
                 </div>
               </CardContent>
 
               <div className="bg-black/50 p-8 md:p-10 flex flex-col justify-center border-t md:border-t-0 md:border-l border-white/10 text-center">
                 <div className="mb-1">
-                  <span className="text-6xl font-black text-white tracking-tight">$97</span>
+                  <span className="text-6xl font-black text-white tracking-tight">$99</span>
                   <span className="text-lg text-zinc-500 font-medium">/mo</span>
                 </div>
                 <div className="text-sm text-orange-300 font-medium mb-1">+$99 one-time build & setup</div>
