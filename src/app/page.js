@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Sparkles, MessageSquare, BarChart3, Globe, ArrowRight, CheckCircle2, 
   Clock, ShieldCheck, Star, Users, MapPin, BrainCircuit, FileText, 
-  Megaphone, Calendar, Menu, Zap, Instagram, HelpCircle
+  Megaphone, Calendar, Menu, Zap, MessageCircle, HelpCircle
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -164,7 +164,7 @@ export default function SplashPage() {
                 <Clock className="w-4 h-4 text-zinc-400" /> Live in 24 hours
               </div>
               <div className="flex items-center gap-1.5">
-                <Instagram className="w-4 h-4 text-zinc-400" /> Meta + Instagram approved
+                <MessageCircle className="w-4 h-4 text-zinc-400" /> Meta + Instagram approved
               </div>
             </div>
           </div>
