@@ -48,10 +48,14 @@ export default function SplashPage() {
 
       {/* --- NAV --- */}
       <nav className="w-full sticky top-0 border-b border-white/[0.07] bg-zinc-950/70 backdrop-blur-xl z-50">
-        <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-[80px] flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/">
-              <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-9 w-auto" />
+            <Link href="/" className="flex items-center group">
+              <img 
+                src="/assets/SCC_logo_large.png" 
+                alt="Sun City Connect" 
+                className="h-12 md:h-14 w-auto logo-sparkle drop-shadow-[0_0_12px_rgba(249,115,22,0.35)] group-hover:drop-shadow-[0_0_20px_rgba(249,115,22,0.55)] transition-all duration-300" 
+              />
             </Link>
             <div className="hidden md:flex items-center gap-6 text-sm text-zinc-400 font-medium">
               {navLinks.map(link => (
@@ -171,15 +175,25 @@ export default function SplashPage() {
 
           {/* Right Visual Mock */}
           <div className="relative lg:h-[560px] flex items-center justify-center">
+            {/* Decorative sun watermark */}
+            <img 
+              src="/assets/SCC_sun_clean_512.png" 
+              alt="" 
+              className="absolute w-[280px] h-[280px] opacity-[0.07] pointer-events-none select-none logo-glow"
+              style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+              aria-hidden="true"
+            />
             {/* Phone Mock */}
-            <div className="relative w-[300px] sm:w-[320px] bg-zinc-900 rounded-[2.5rem] border-[8px] border-zinc-800 shadow-2xl overflow-hidden">
+            <div className="relative w-[300px] sm:w-[320px] bg-zinc-900 rounded-[2.5rem] border-[8px] border-zinc-800 shadow-2xl overflow-hidden z-10">
               <div className="bg-zinc-900 p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-orange-600" />
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-zinc-800 border border-orange-500/30 flex items-center justify-center overflow-hidden shadow-[0_0_12px_rgba(249,115,22,0.25)]">
+                      <img src="/assets/SCC_sun_clean_128.png" alt="" className="w-7 h-7 object-contain" />
+                    </div>
                     <div>
                       <div className="text-xs font-bold text-white leading-none">Sun City Catering & Events</div>
-                      <div className="text-[10px] text-emerald-400 flex items-center gap-1">
+                      <div className="text-[10px] text-emerald-400 flex items-center gap-1 mt-0.5">
                         <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" /> AI Sales Agent Active
                       </div>
                     </div>
@@ -551,13 +565,13 @@ export default function SplashPage() {
                   </li>
                 </ul>
                 <div className="mt-8 flex items-center gap-3 text-xs text-zinc-500">
-                  <ShieldCheck className="w-4 h-4" /> Cancel anytime!
+                  <ShieldCheck className="w-4 h-4" /> 14-day money-back guarantee • Cancel anytime
                 </div>
               </CardContent>
 
               <div className="bg-black/50 p-8 md:p-10 flex flex-col justify-center border-t md:border-t-0 md:border-l border-white/10 text-center">
                 <div className="mb-1">
-                  <span className="text-6xl font-black text-white tracking-tight">$99</span>
+                  <span className="text-6xl font-black text-white tracking-tight">$97</span>
                   <span className="text-lg text-zinc-500 font-medium">/mo</span>
                 </div>
                 <div className="text-sm text-orange-300 font-medium mb-1">+$99 one-time build & setup</div>
@@ -604,7 +618,7 @@ export default function SplashPage() {
       <footer className="w-full border-t border-white/5 bg-black/40 py-10 px-6">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/assets/SCC_logo.png" alt="SCC" className="h-6 w-auto opacity-80" />
+            <img src="/assets/SCC_logo_large.png" alt="SCC" className="h-9 w-auto opacity-90 logo-glow" />
             <span className="text-xs text-zinc-600">
               © {new Date().getFullYear()} Sun City Connect • Built in El Paso, TX
             </span>
