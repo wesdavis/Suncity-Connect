@@ -272,7 +272,7 @@ export default function PremiumLeadDashboard() {
           <Sparkles className="w-4 h-4 text-amber-200 animate-pulse hidden sm:inline" />
           <span>Your AI is trained and ready! Activate your subscription to publish your live storefront and Meta bots.</span>
           <a 
-            href={`https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
+            href={`https://buy.stripe.com/4gMbIUe284Mw4aud367Vm02?client_reference_id=${userId}`} 
             target="_blank" 
             rel="noopener noreferrer"
             className="inline-flex items-center bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-zinc-100 transition shadow-md ml-2"
