@@ -38,7 +38,7 @@ module.exports = async (req, res) => {
         ]
       }];
 
-      const chatModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash", tools: storefrontTools });
+      const chatModel = genAI.getGenerativeModel({ model: "gemini-3.6-flash", tools: storefrontTools });
       const chatPrompt = `You are the elite digital receptionist and client qualification agent for ${client.business_name}.\n--- CRITICAL TIME CONTEXT ---\nToday's date and current time for this business is: ${currentDateContext}.\nAppointments take ${client.appointment_duration || 60} minutes.\nWhen using the booking tool, you MUST format the ISO string using the exact GMT offset provided above.\n--- CORE SERVICE RULES & TIMELINES ---\n${client.custom_prompt}\n--- ATTACHED REFERENCE DOCUMENTS & MENUS ---\n${client.pdf_knowledge || "No additional business documents uploaded."}\n--- CONVERSATIONAL MANDATES ---\n1. Be highly professional, casual, and brief. Use 1-3 short sentences maximum.\n2. EMAIL ACTION: IF the customer explicitly asks for an email OR provides an email address to receive files/information, YOU MUST USE the send_email tool immediately.\n3. CALENDAR ACTION: If the customer wants to book a time/appointment and provides their name, email, and desired time, USE the check_and_book_appointment tool.\n4. MISSING BOOKING INFO: If they want to book, check the CONVERSATIONAL MEMORY first. If they already provided their name or email earlier in the chat, DO NOT ask for it again. Only ask for the specific details that are still missing.\n5. THIRD PARTY CALENDAR: If this business has a custom booking link (${client.booking_link || "None provided"}), provide them the link instead of using the native tool.\n--- CONVERSATIONAL MEMORY ---\n${memoryString}\n--- CURRENT CUSTOMER MESSAGE ---\n"${message}"\nDraft your immediate reply response text or execute a tool below:`;
 
       const chatResult = await chatModel.generateContent(chatPrompt);
@@ -90,7 +90,7 @@ module.exports = async (req, res) => {
         }
       } else {
         aiReply = chatResult.response.text().trim();
-        const analystModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const analystModel = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
         const extractionPrompt = `Analyze this conversation history between customer and assistant:\n${memoryString}\nCustomer: "${message}"\n\nExtract parameters and return a valid JSON object with exact keys: {"intent": "2-4 word summary", "phone": "number or 'Pending'", "email": "email or 'Pending'", "timeline": "time context or 'Pending'", "status": "'Hot' if info/urgency found, else 'Warm'/'Cold'"}. Return raw JSON only.`;
         try {
           const analystResult = await analystModel.generateContent(extractionPrompt);
