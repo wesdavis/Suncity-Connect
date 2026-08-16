@@ -1,7 +1,7 @@
 'use client'; 
 import { useEffect, useState } from 'react'; 
 import { createClient } from '@supabase/supabase-js'; 
-import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X, Database, Plus } from 'lucide-react';
+import { Lock, ArrowRight, LayoutDashboard, Settings, Phone, Flame, Mail, Clock, MessageSquare, Smartphone, Link as LinkIcon, Menu, LogOut, CreditCard, Search, Sparkles, Library, BrainCircuit, Globe, Pen, Calendar as CalendarIcon, User, Check, X, Database, Plus, Trash2, UserX, CheckCircle2 } from 'lucide-react';
 import { Button } from "@/components/ui/button"; 
 import { Input } from "@/components/ui/input";  
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"; 
@@ -37,6 +37,7 @@ export default function PremiumLeadDashboard() {
   const [isManualBooking, setIsManualBooking] = useState(false); // For Lead Drawer
   const [showGlobalBooking, setShowGlobalBooking] = useState(false); // For Calendar Tab
   const [manualBookingData, setManualBookingData] = useState({ date: '', time: '', service: 'Consultation', customer_name: '', customer_email: '', customer_phone: '' });
+  const [apptFilter, setApptFilter] = useState('upcoming'); // upcoming | past | cancelled | all
 
   const router = useRouter();   
 
@@ -66,14 +67,49 @@ export default function PremiumLeadDashboard() {
     }   
   };   
 
-  const cancelAppointment = async (apptId) => {
+  const updateAppointmentStatus = async (apptId, newStatus) => {
     const { error } = await supabase
       .from('appointments')
-      .update({ status: 'cancelled' })
+      .update({ status: newStatus })
       .eq('id', apptId);
 
     if (!error) {
-      setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: 'cancelled' } : a));
+      setAppointments(prev => prev.map(a => a.id === apptId ? { ...a, status: newStatus } : a));
+    } else {
+      alert('Could not update appointment status. Please try again.');
+    }
+  };
+
+  const deleteAppointment = async (apptId) => {
+    if (!confirm('Permanently delete this appointment? This cannot be undone.')) return;
+
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', apptId);
+
+    if (!error) {
+      setAppointments(prev => prev.filter(a => a.id !== apptId));
+    } else {
+      alert('Could not delete appointment. Please try again.');
+    }
+  };
+
+  const clearCancelledAppointments = async () => {
+    const cancelled = appointments.filter(a => a.status === 'cancelled');
+    if (cancelled.length === 0) return;
+    if (!confirm(`Permanently delete ${cancelled.length} cancelled appointment${cancelled.length === 1 ? '' : 's'}?`)) return;
+
+    const ids = cancelled.map(a => a.id);
+    const { error } = await supabase
+      .from('appointments')
+      .delete()
+      .in('id', ids);
+
+    if (!error) {
+      setAppointments(prev => prev.filter(a => a.status !== 'cancelled'));
+    } else {
+      alert('Could not clear cancelled appointments. Please try again.');
     }
   };
 
@@ -272,7 +308,7 @@ export default function PremiumLeadDashboard() {
           <Sparkles className="w-4 h-4 text-amber-200 animate-pulse hidden sm:inline" />
           <span>Your AI is trained and ready! Activate your subscription to publish your live storefront and Meta bots.</span>
           <a 
-            href={`https://buy.stripe.com/4gMbIUe284Mw4aud367Vm02?client_reference_id=${userId}`} 
+            href={`https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
             target="_blank" 
             rel="noopener noreferrer"
             className="inline-flex items-center bg-white text-orange-600 px-3 py-1 rounded-lg font-bold text-xs hover:bg-zinc-100 transition shadow-md ml-2"
@@ -716,62 +752,206 @@ export default function PremiumLeadDashboard() {
                         </div>
                       )}
 
-                      {appointments.length === 0 ? (
-                        <div className="text-center py-20 text-zinc-500 flex flex-col items-center justify-center gap-2 bg-zinc-900/10 rounded-xl border border-dashed border-white/5">
-                          <CalendarIcon className="w-10 h-10 opacity-30 text-orange-500 mb-2" />
-                          <h4 className="font-bold text-white">No Appointments Scheduled Yet</h4>
-                          <p className="text-sm text-zinc-400 max-w-xs">When the AI core schedules consultations or bookings via storefront chat, they'll sync right here.</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {appointments.map((appt) => {
-                            const dateObj = new Date(appt.appointment_time);
-                            const isCancelled = appt.status === 'cancelled';
-                            return (
-                              <div 
-                                key={appt.id} 
-                                className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-4 ${isCancelled ? 'bg-zinc-900/20 border-white/5 opacity-40' : 'bg-zinc-900/60 border-white/10 shadow-lg hover:border-orange-500/30'}`}
+                      {/* Filter bar */}
+                      {appointments.length > 0 && (
+                        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                          <div className="flex flex-wrap gap-1.5 bg-white/5 p-1 rounded-xl border border-white/10">
+                            {[
+                              { key: 'upcoming', label: 'Upcoming' },
+                              { key: 'past', label: 'Past' },
+                              { key: 'cancelled', label: 'Cancelled' },
+                              { key: 'all', label: 'All' },
+                            ].map(f => (
+                              <button
+                                key={f.key}
+                                onClick={() => setApptFilter(f.key)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                  apptFilter === f.key
+                                    ? 'bg-orange-500 text-white shadow-md'
+                                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                                }`}
                               >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <h4 className={`font-black text-base tracking-tight ${isCancelled ? 'line-through text-zinc-500' : 'text-white'}`}>{appt.customer_name}</h4>
-                                      <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider px-2 border-none ${isCancelled ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'}`}>
-                                        {appt.status}
-                                      </Badge>
-                                    </div>
-                                    <p className="text-zinc-400 text-xs flex items-center gap-1.5">
-                                      <Mail className="w-3 h-3 text-zinc-500" /> {appt.customer_email || 'No email provided'}
-                                    </p>
-                                    <p className="text-zinc-400 text-xs font-medium bg-white/5 border border-white/5 px-2 py-0.5 rounded w-fit capitalize mt-2">
-                                      {appt.service_type || 'General Booking'}
-                                    </p>
-                                  </div>
-
-                                  <div className="text-center shrink-0 bg-orange-500/10 border border-orange-500/20 p-3 rounded-xl text-orange-400 min-w-[75px] shadow-inner">
-                                    <div className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-0.5">{dateObj.toLocaleString([], { weekday: 'short' })}</div>
-                                    <div className="text-xl font-black tracking-tighter leading-none my-1">{dateObj.toLocaleString([], { month: 'short', day: 'numeric' }).toUpperCase()}</div>
-                                    <div className="text-[10px] font-bold font-mono bg-orange-500/20 py-0.5 px-1.5 rounded mt-1">{dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-                                  </div>
-                                </div>
-
-                                {!isCancelled && (
-                                  <div className="border-t border-white/5 pt-3 flex justify-end">
-                                    <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={() => cancelAppointment(appt.id)}
-                                      className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 h-8 font-bold text-xs"
-                                    >
-                                      <X className="w-3.5 h-3.5 mr-1" /> Cancel Appointment
-                                    </Button>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                          {appointments.some(a => a.status === 'cancelled') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={clearCancelledAppointments}
+                              className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 h-8 text-xs font-bold"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1.5" /> Clear cancelled
+                            </Button>
+                          )}
                         </div>
                       )}
+
+                      {(() => {
+                        const now = new Date();
+                        const filtered = appointments
+                          .filter(appt => {
+                            const t = new Date(appt.appointment_time);
+                            if (apptFilter === 'upcoming') return appt.status !== 'cancelled' && t >= now;
+                            if (apptFilter === 'past') return appt.status !== 'cancelled' && t < now;
+                            if (apptFilter === 'cancelled') return appt.status === 'cancelled';
+                            return true; // all
+                          })
+                          .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time));
+
+                        if (appointments.length === 0) {
+                          return (
+                            <div className="text-center py-20 text-zinc-500 flex flex-col items-center justify-center gap-2 bg-zinc-900/10 rounded-xl border border-dashed border-white/5">
+                              <CalendarIcon className="w-10 h-10 opacity-30 text-orange-500 mb-2" />
+                              <h4 className="font-bold text-white">No Appointments Scheduled Yet</h4>
+                              <p className="text-sm text-zinc-400 max-w-xs">When the AI schedules consultations or bookings via chat, they&apos;ll sync right here.</p>
+                            </div>
+                          );
+                        }
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="text-center py-14 text-zinc-500 flex flex-col items-center justify-center gap-2 bg-zinc-900/10 rounded-xl border border-dashed border-white/5">
+                              <CalendarIcon className="w-8 h-8 opacity-30 mb-1" />
+                              <p className="text-sm font-medium text-zinc-400">No appointments in this view.</p>
+                            </div>
+                          );
+                        }
+
+                        const statusStyles = {
+                          confirmed: 'bg-green-500/10 text-green-400',
+                          cancelled: 'bg-red-500/10 text-red-400',
+                          'no-show': 'bg-amber-500/10 text-amber-400',
+                          completed: 'bg-blue-500/10 text-blue-400',
+                        };
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filtered.map((appt) => {
+                              const dateObj = new Date(appt.appointment_time);
+                              const isPast = dateObj < now;
+                              const isCancelled = appt.status === 'cancelled';
+                              const isNoShow = appt.status === 'no-show';
+                              const isCompleted = appt.status === 'completed';
+                              const isActive = appt.status === 'confirmed';
+
+                              return (
+                                <div
+                                  key={appt.id}
+                                  className={`p-4 rounded-xl border transition-all flex flex-col justify-between gap-4 ${
+                                    isCancelled || isNoShow
+                                      ? 'bg-zinc-900/20 border-white/5 opacity-60'
+                                      : isCompleted
+                                      ? 'bg-zinc-900/40 border-white/5'
+                                      : 'bg-zinc-900/60 border-white/10 shadow-lg hover:border-orange-500/30'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="space-y-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h4 className={`font-black text-base tracking-tight truncate ${isCancelled ? 'line-through text-zinc-500' : 'text-white'}`}>
+                                          {appt.customer_name}
+                                        </h4>
+                                        <Badge
+                                          variant="outline"
+                                          className={`text-[10px] uppercase font-bold tracking-wider px-2 border-none ${statusStyles[appt.status] || statusStyles.confirmed}`}
+                                        >
+                                          {appt.status === 'no-show' ? 'No-Show' : appt.status}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-zinc-400 text-xs flex items-center gap-1.5 truncate">
+                                        <Mail className="w-3 h-3 text-zinc-500 shrink-0" /> {appt.customer_email || 'No email provided'}
+                                      </p>
+                                      {appt.customer_phone && (
+                                        <p className="text-zinc-400 text-xs flex items-center gap-1.5">
+                                          <Phone className="w-3 h-3 text-zinc-500 shrink-0" /> {appt.customer_phone}
+                                        </p>
+                                      )}
+                                      <p className="text-zinc-400 text-xs font-medium bg-white/5 border border-white/5 px-2 py-0.5 rounded w-fit capitalize mt-2">
+                                        {appt.service_type || 'General Booking'}
+                                      </p>
+                                    </div>
+
+                                    <div className={`text-center shrink-0 p-3 rounded-xl min-w-[75px] shadow-inner ${
+                                      isPast && isActive
+                                        ? 'bg-zinc-800/80 border border-white/10 text-zinc-400'
+                                        : 'bg-orange-500/10 border border-orange-500/20 text-orange-400'
+                                    }`}>
+                                      <div className="text-[10px] uppercase font-black tracking-widest opacity-80 mb-0.5">
+                                        {dateObj.toLocaleString([], { weekday: 'short' })}
+                                      </div>
+                                      <div className="text-xl font-black tracking-tighter leading-none my-1">
+                                        {dateObj.toLocaleString([], { month: 'short', day: 'numeric' }).toUpperCase()}
+                                      </div>
+                                      <div className="text-[10px] font-bold font-mono bg-black/20 py-0.5 px-1.5 rounded mt-1">
+                                        {dateObj.toLocaleString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Actions */}
+                                  <div className="border-t border-white/5 pt-3 flex flex-wrap items-center justify-end gap-1.5">
+                                    {isActive && (
+                                      <>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => updateAppointmentStatus(appt.id, 'completed')}
+                                          className="text-zinc-500 hover:text-blue-400 hover:bg-blue-500/10 h-8 font-bold text-xs px-2"
+                                          title="Mark as completed"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Done
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => updateAppointmentStatus(appt.id, 'no-show')}
+                                          className="text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 h-8 font-bold text-xs px-2"
+                                          title="Mark as no-show"
+                                        >
+                                          <UserX className="w-3.5 h-3.5 mr-1" /> No-Show
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => updateAppointmentStatus(appt.id, 'cancelled')}
+                                          className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 h-8 font-bold text-xs px-2"
+                                          title="Cancel appointment"
+                                        >
+                                          <X className="w-3.5 h-3.5 mr-1" /> Cancel
+                                        </Button>
+                                      </>
+                                    )}
+                                    {(isCancelled || isNoShow || isCompleted || isPast) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => deleteAppointment(appt.id)}
+                                        className="text-zinc-500 hover:text-red-400 hover:bg-red-500/10 h-8 font-bold text-xs px-2"
+                                        title="Permanently delete"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                                      </Button>
+                                    )}
+                                    {isActive && !isPast && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => deleteAppointment(appt.id)}
+                                        className="text-zinc-600 hover:text-red-400 hover:bg-red-500/10 h-8 font-bold text-xs px-2"
+                                        title="Permanently delete"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
