@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Loader2, ArrowRight, ArrowLeft, CheckCircle2, Link as LinkIcon, Calendar, Bot, Clock, Globe } from 'lucide-react';
@@ -15,6 +15,7 @@ export default function OnboardingWizard() {
   
   const [formData, setFormData] = useState({
     businessName: '',
+    notificationEmail: '',
     industry: 'recruiting',
     streetAddress: '',
     suite: '',
@@ -40,6 +41,26 @@ export default function OnboardingWizard() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
+  // Prefill notification email from auth when Facebook/email login provides one
+  useEffect(() => {
+    async function prefillEmail() {
+      try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          setFormData((prev) =>
+            prev.notificationEmail ? prev : { ...prev, notificationEmail: session.user.email }
+          );
+        }
+      } catch (e) {
+        // ignore — user can type it
+      }
+    }
+    prefillEmail();
+  }, []);
+
   const submitOnboarding = async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -60,8 +81,13 @@ export default function OnboardingWizard() {
       // Auto-generate the URL slug from the business name
       const generatedDomain = formData.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
 
+      if (!formData.notificationEmail?.trim() || !formData.notificationEmail.includes('@')) {
+        throw new Error('Please enter a valid email where we should send new order alerts.');
+      }
+
       const payload = {
         business_name: formData.businessName,
+        notification_email: formData.notificationEmail.trim().toLowerCase(),
         industry: formData.industry,
         street_address: formData.streetAddress,
         city: formData.city,
@@ -155,6 +181,22 @@ export default function OnboardingWizard() {
                   value={formData.businessName}
                   onChange={(e) => handleFieldChange('businessName', e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-zinc-300">Order notification email</label>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@yourbusiness.com"
+                  className="w-full bg-zinc-950 border border-white/10 rounded-lg p-2.5 text-white placeholder:text-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
+                  value={formData.notificationEmail}
+                  onChange={(e) => handleFieldChange('notificationEmail', e.target.value)}
+                />
+                <p className="text-xs text-zinc-500">
+                  We&apos;ll email new paid orders here. Required — Facebook login often doesn&apos;t share an email.
+                </p>
               </div>
 
               <div className="space-y-1.5">

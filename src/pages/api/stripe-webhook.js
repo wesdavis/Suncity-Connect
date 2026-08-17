@@ -68,7 +68,13 @@ function parseOrderItems(rawItems, rawItemsJson) {
 }
 
 async function resolveOwnerEmail(clientRow) {
-  // clients table has no email column — resolve from auth.users via user_id
+  // 1. Preferred: notification_email from onboarding / settings
+  if (clientRow?.notification_email && clientRow.notification_email.includes('@')) {
+    console.log('📧 Using clients.notification_email');
+    return clientRow.notification_email.trim().toLowerCase();
+  }
+
+  // 2. Fallback: auth.users (often missing for Facebook login)
   if (clientRow?.user_id) {
     try {
       const { data, error } = await supabase.auth.admin.getUserById(clientRow.user_id);
@@ -85,7 +91,7 @@ async function resolveOwnerEmail(clientRow) {
     console.warn('⚠️ Client has no user_id — cannot resolve owner email from auth');
   }
 
-  // Optional platform fallback (set ORDERS_FALLBACK_EMAIL in Vercel for testing)
+  // 3. Optional platform fallback
   if (process.env.ORDERS_FALLBACK_EMAIL) {
     console.log('📧 Using ORDERS_FALLBACK_EMAIL');
     return process.env.ORDERS_FALLBACK_EMAIL;
@@ -182,10 +188,9 @@ export default async function handler(req, res) {
       }
 
       // 1B. NOTIFY BUSINESS OWNER
-      // Note: clients has no email column — we resolve from auth.users via user_id
       const { data: clientData, error: dbError } = await supabase
         .from('clients')
-        .select('id, business_name, user_id')
+        .select('id, business_name, user_id, notification_email')
         .eq('id', clientId)
         .single();
 

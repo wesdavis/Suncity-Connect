@@ -39,6 +39,7 @@ export default function SettingsPage() {
     const [stripeAccountId, setStripeAccountId] = useState('');
     const [squareAccessToken, setSquareAccessToken] = useState('');
     const [squareLocationId, setSquareLocationId] = useState('');
+    const [notificationEmail, setNotificationEmail] = useState('');
 
     // Meta Integration State
     const [fbPageId, setFbPageId] = useState(null);
@@ -53,7 +54,7 @@ export default function SettingsPage() {
             
             const { data, error } = await supabase
                 .from('clients')
-                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id, payment_processor, stripe_account_id, square_access_token, square_location_id')
+                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id, payment_processor, stripe_account_id, square_access_token, square_location_id, notification_email')
                 .eq('user_id', session.user.id)
                 .single();
                 
@@ -74,6 +75,12 @@ export default function SettingsPage() {
                 if (data.stripe_account_id) setStripeAccountId(data.stripe_account_id);
                 if (data.square_access_token) setSquareAccessToken(data.square_access_token);
                 if (data.square_location_id) setSquareLocationId(data.square_location_id);
+                // Prefer saved notification email; fall back to auth email when present
+                if (data.notification_email) {
+                  setNotificationEmail(data.notification_email);
+                } else if (session.user?.email) {
+                  setNotificationEmail(session.user.email);
+                }
             }
             setLoading(false);
         }
@@ -211,7 +218,8 @@ export default function SettingsPage() {
                 payment_processor: paymentProcessor,
                 stripe_account_id: stripeAccountId,
                 square_access_token: squareAccessToken,
-                square_location_id: squareLocationId
+                square_location_id: squareLocationId,
+                notification_email: notificationEmail.trim() || null,
             })
             .eq('id', clientId);
             
@@ -361,6 +369,20 @@ export default function SettingsPage() {
                                 <CardDescription className="text-zinc-400">Connect your existing Stripe or Square account to let the AI process sales.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <Label className="text-zinc-300">Order notification email</Label>
+                                    <Input
+                                        type="email"
+                                        placeholder="you@yourbusiness.com"
+                                        className="bg-zinc-900/50 border-white/10 text-white"
+                                        value={notificationEmail}
+                                        onChange={(e) => setNotificationEmail(e.target.value)}
+                                    />
+                                    <p className="text-xs text-zinc-500">
+                                        Where we send &quot;new order&quot; alerts when someone pays via chat or your storefront. Required if you use Facebook login (Facebook often doesn&apos;t share an email).
+                                    </p>
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label className="text-zinc-300">Select Processor</Label>
                                     <div className="flex gap-4">
