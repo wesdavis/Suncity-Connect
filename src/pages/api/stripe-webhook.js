@@ -95,13 +95,33 @@ export default async function handler(req, res) {
   const rawBody = await getRawBody(req);
   const signature = req.headers['stripe-signature'];
 
-  let event;
+  // Support both platform ("Your account") and Connect ("Connected accounts") destinations
+  const webhookSecrets = [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_CONNECT_WEBHOOK_SECRET,
+  ].filter(Boolean);
 
-  try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch (err) {
-    console.error('❌ Stripe Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  if (webhookSecrets.length === 0) {
+    console.error('❌ No STRIPE_WEBHOOK_SECRET or STRIPE_CONNECT_WEBHOOK_SECRET configured');
+    return res.status(500).send('Webhook secrets not configured');
+  }
+
+  let event;
+  let lastVerifyError = null;
+
+  for (const secret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, secret);
+      lastVerifyError = null;
+      break;
+    } catch (err) {
+      lastVerifyError = err;
+    }
+  }
+
+  if (!event) {
+    console.error('❌ Stripe Webhook signature verification failed:', lastVerifyError?.message);
+    return res.status(400).send(`Webhook Error: ${lastVerifyError?.message || 'Invalid signature'}`);
   }
 
   if (event.type === 'checkout.session.completed') {
