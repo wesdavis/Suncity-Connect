@@ -119,8 +119,8 @@ export default function SplashPage() {
       </nav>
 
       {/* --- HERO --- */}
-      <main className="relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
+      <main className="relative overflow-x-hidden">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[1000px] h-[700px] bg-orange-500/15 blur-[120px] rounded-full" />
           <div className="absolute top-[20%] right-[-100px] w-[500px] h-[500px] bg-blue-500/10 blur-[120px] rounded-full" />
         </div>
@@ -174,12 +174,12 @@ export default function SplashPage() {
           </div>
 
           {/* Right Visual Mock */}
-          <div className="relative lg:h-[560px] flex items-center justify-center">
+          <div className="relative lg:h-[560px] flex items-center justify-center overflow-visible">
             {/* Decorative sun watermark */}
             <img 
               src="/assets/SCC_sun_clean_512.png" 
               alt="" 
-              className="absolute w-[280px] h-[280px] opacity-[0.07] pointer-events-none select-none logo-glow"
+              className="absolute w-[280px] h-[280px] opacity-[0.07] pointer-events-none select-none logo-glow z-0"
               style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
               aria-hidden="true"
             />
@@ -223,9 +223,9 @@ export default function SplashPage() {
               </div>
             </div>
 
-            {/* Floating Stats */}
-            <div className="absolute -left-2 sm:-left-4 top-[12%] bg-zinc-900/90 backdrop-blur border border-white/10 rounded-xl p-3 shadow-xl hidden sm:flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+            {/* Floating Stats — sit above the phone, offset outside its edges */}
+            <div className="absolute left-0 sm:-left-6 md:-left-10 top-[10%] z-20 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl hidden sm:flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
                 <Zap className="w-4 h-4 text-green-400" />
               </div>
               <div>
@@ -233,8 +233,8 @@ export default function SplashPage() {
                 <div className="text-sm font-bold text-white">&lt; 5 seconds</div>
               </div>
             </div>
-            <div className="absolute -right-1 sm:-right-2 bottom-[18%] bg-zinc-900/90 backdrop-blur border border-white/10 rounded-xl p-3 shadow-xl hidden sm:flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center">
+            <div className="absolute right-0 sm:-right-4 md:-right-8 bottom-[16%] z-20 bg-zinc-900/95 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl hidden sm:flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
                 <BrainCircuit className="w-4 h-4 text-orange-400" />
               </div>
               <div>

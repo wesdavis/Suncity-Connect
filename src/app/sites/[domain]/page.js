@@ -187,9 +187,16 @@ export default function MasterTemplate() {
   const [isMobileBookingOpen, setIsMobileBookingOpen] = useState(false);
   
   const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const resetTextareaHeight = () => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
   useEffect(() => {
@@ -230,6 +237,7 @@ export default function MasterTemplate() {
 
     const userMessage = chatInput;
     setChatInput('');
+    resetTextareaHeight();
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setIsTyping(true);
 
@@ -464,11 +472,11 @@ export default function MasterTemplate() {
         </header>
 
         {/* CHAT MESSAGES STREAM */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 flex flex-col">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 space-y-6 flex flex-col min-w-0">
           {messages.map((msg, idx) => (
-            <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={idx} className={`flex min-w-0 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div 
-                className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[75%] shadow-md text-[15px] leading-relaxed ${
+                className={`p-4 rounded-2xl max-w-[85%] sm:max-w-[75%] min-w-0 shadow-md text-[15px] leading-relaxed break-words whitespace-pre-wrap [overflow-wrap:anywhere] ${
                   msg.role === 'user' 
                     ? 'rounded-tr-sm text-white' 
                     : 'bg-zinc-800 text-zinc-100 rounded-tl-sm'
@@ -495,19 +503,34 @@ export default function MasterTemplate() {
 
         {/* CHAT INPUT FORM */}
         <div className="p-4 bg-zinc-950 border-t border-white/10 shrink-0 pb-safe">
-          <form onSubmit={handleSendMessage} className="relative flex items-center max-w-2xl mx-auto">
-            <input 
-              type="text" 
-              placeholder="Type your answer..." 
+          <form onSubmit={handleSendMessage} className="relative flex items-end max-w-2xl mx-auto gap-0">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              placeholder="Type your answer..."
               value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="w-full bg-zinc-900 border border-white/10 rounded-full py-3.5 pl-5 pr-14 text-white text-[15px] focus:ring-1 outline-none transition-shadow"
+              onChange={(e) => {
+                setChatInput(e.target.value);
+                // Auto-grow the textarea as they type
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
+              }}
+              onKeyDown={(e) => {
+                // Enter sends, Shift+Enter adds a new line
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (chatInput.trim() && !isTyping) {
+                    handleSendMessage(e);
+                  }
+                }
+              }}
+              className="w-full bg-zinc-900 border border-white/10 rounded-3xl py-3.5 pl-5 pr-14 text-white text-[15px] focus:ring-1 outline-none transition-shadow resize-none overflow-y-auto break-words whitespace-pre-wrap leading-relaxed max-h-[140px]"
               style={{ '--tw-ring-color': client.primary_color || '#ea580c' }}
             />
             <button 
               type="submit"
               disabled={!chatInput.trim() || isTyping}
-              className="absolute right-1.5 p-2.5 rounded-full text-white transition-transform active:scale-95 disabled:opacity-50"
+              className="absolute right-1.5 bottom-1.5 p-2.5 rounded-full text-white transition-transform active:scale-95 disabled:opacity-50"
               style={{ backgroundColor: client.primary_color || '#ea580c' }}
             >
               <Send className="w-4 h-4 ml-0.5" />
