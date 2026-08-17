@@ -94,15 +94,39 @@ export default async function handler(req, res) {
       });
     }
 
-    // --- ONBOARD: create Express account if needed + Account Link ---
+    // --- ONBOARD: create Express connected account if needed + Account Link ---
     if (action === 'onboard') {
-      let accountId = client.stripe_account_id;
+      let accountId = client.stripe_account_id || null;
 
-      if (!accountId) {
-        const email =
-          client.notification_email ||
-          user.email ||
-          undefined;
+      // Platform's own account cannot use Account Links — must be a Connected account
+      let platformAccountId = null;
+      try {
+        const platform = await stripe.accounts.retrieve();
+        platformAccountId = platform.id;
+      } catch (e) {
+        console.warn('Could not retrieve platform account id:', e.message);
+      }
+
+      const isPlatformSelf =
+        accountId && platformAccountId && accountId === platformAccountId;
+
+      // Validate existing id is a real connected account we can link
+      let needsNewAccount = !accountId || isPlatformSelf;
+      if (accountId && !needsNewAccount) {
+        try {
+          const existing = await stripe.accounts.retrieve(accountId);
+          // Standard/platform-only accounts aren't Express connected under us
+          if (!existing || existing.id === platformAccountId) {
+            needsNewAccount = true;
+          }
+        } catch (e) {
+          console.warn('Stored stripe_account_id not retrievable, creating new Express account:', e.message);
+          needsNewAccount = true;
+        }
+      }
+
+      if (needsNewAccount) {
+        const email = client.notification_email || user.email || undefined;
 
         const account = await stripe.accounts.create({
           type: 'express',
@@ -129,16 +153,65 @@ export default async function handler(req, res) {
           .update({
             stripe_account_id: accountId,
             payment_processor: 'stripe',
+            details_submitted: false,
+            charges_enabled: false,
+            payouts_enabled: false,
+            stripe_requirements_due: null,
           })
           .eq('id', client.id);
       }
 
-      const accountLink = await stripe.accountLinks.create({
-        account: accountId,
-        refresh_url: `${baseUrl}/dashboard/settings?stripe=refresh`,
-        return_url: `${baseUrl}/dashboard/settings?stripe=return`,
-        type: 'account_onboarding',
-      });
+      let accountLink;
+      try {
+        accountLink = await stripe.accountLinks.create({
+          account: accountId,
+          refresh_url: `${baseUrl}/dashboard/settings?stripe=refresh`,
+          return_url: `${baseUrl}/dashboard/settings?stripe=return`,
+          type: 'account_onboarding',
+        });
+      } catch (linkErr) {
+        // Stale/non-connected acct_ in DB — create a fresh Express account and retry once
+        console.warn('Account link failed, recreating Express account:', linkErr.message);
+
+        const email = client.notification_email || user.email || undefined;
+        const account = await stripe.accounts.create({
+          type: 'express',
+          country: 'US',
+          email: email || undefined,
+          capabilities: {
+            card_payments: { requested: true },
+            transfers: { requested: true },
+          },
+          business_profile: {
+            name: client.business_name || undefined,
+            product_description: 'Orders placed through Sun City Connect AI cashier',
+          },
+          metadata: {
+            suncity_client_id: client.id,
+            suncity_user_id: user.id,
+          },
+        });
+
+        accountId = account.id;
+        await supabase
+          .from('clients')
+          .update({
+            stripe_account_id: accountId,
+            payment_processor: 'stripe',
+            details_submitted: false,
+            charges_enabled: false,
+            payouts_enabled: false,
+            stripe_requirements_due: null,
+          })
+          .eq('id', client.id);
+
+        accountLink = await stripe.accountLinks.create({
+          account: accountId,
+          refresh_url: `${baseUrl}/dashboard/settings?stripe=refresh`,
+          return_url: `${baseUrl}/dashboard/settings?stripe=return`,
+          type: 'account_onboarding',
+        });
+      }
 
       return res.status(200).json({
         url: accountLink.url,
