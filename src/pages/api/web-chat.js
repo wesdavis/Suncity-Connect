@@ -147,7 +147,7 @@ module.exports = async (req, res) => {
         functionDeclarations.push({
           name: 'generate_checkout_link',
           description:
-            'Generates a secure payment link. ONLY call this when the customer specifies exact items from the verified menu and is ready to buy / place an order (including to-go, pickup, and product orders).',
+            'Generates a secure payment link. ONLY call this when the customer specifies exact items from the verified menu and is ready to buy / place an order (including to-go, pickup, and product orders). Always include pickup/fulfillment notes from the conversation so the business owner knows when to have the order ready.',
           parameters: {
             type: 'OBJECT',
             properties: {
@@ -169,6 +169,20 @@ module.exports = async (req, res) => {
                   required: ['name', 'quantity'],
                 },
               },
+              pickup_time: {
+                type: 'STRING',
+                description:
+                  'When the customer will pick up or wants the order ready (e.g. "Wednesday 10 AM when you open", "ASAP", "tonight at 7pm"). Use conversation context.',
+              },
+              order_notes: {
+                type: 'STRING',
+                description:
+                  'Extra context for the business owner: ordered while closed, special requests, name if given, delivery vs pickup, etc. Keep under 200 characters.',
+              },
+              fulfillment: {
+                type: 'STRING',
+                description: 'pickup, to-go, delivery, or dine-in. Default pickup.',
+              },
             },
             required: ['items'],
           },
@@ -177,8 +191,9 @@ module.exports = async (req, res) => {
         dynamicMenuSection = `\n--- VERIFIED MENU & PRICING (SOURCE OF TRUTH) ---\n${menuString}\n`;
         dynamicCashierRule = `
 6. ORDERING / CASHIER RULE: You CAN take to-go, pickup, and product orders. Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for something generic and there are multiple options, ask them to clarify the exact item before generating a checkout link. When they confirm exact items and quantities, USE the generate_checkout_link tool to create their payment URL.
-7. SCARCITY: If an item's Stock count is 3 or less, organically mention urgency (e.g. "Only a few left — good idea to grab it now.").
-8. If they ask "do you do to-go / takeout / online orders?" the answer is YES when menu items exist — help them pick items and check out.`;
+7. ORDER NOTES (IMPORTANT): When calling generate_checkout_link, ALWAYS pass pickup_time and order_notes from the conversation — e.g. if they ordered while closed and will pick up Wednesday at 10 AM, include that. The business owner only sees the payment email, not this chat.
+8. SCARCITY: If an item's Stock count is 3 or less, organically mention urgency (e.g. "Only a few left — good idea to grab it now.").
+9. If they ask "do you do to-go / takeout / online orders?" the answer is YES when menu items exist — help them pick items and check out.`;
       }
 
       const storefrontTools = [{ functionDeclarations }];
@@ -348,6 +363,9 @@ Draft your immediate reply response text or execute a tool below:`;
           }
         } else if (call.name === 'generate_checkout_link') {
           const items = Array.isArray(call.args?.items) ? call.args.items : [];
+          const pickupTime = call.args?.pickup_time || null;
+          const orderNotes = call.args?.order_notes || null;
+          const fulfillment = call.args?.fulfillment || 'pickup';
 
           if (items.length === 0) {
             aiReply =
@@ -361,6 +379,9 @@ Draft your immediate reply response text or execute a tool below:`;
                 body: JSON.stringify({
                   clientId: client.id,
                   items,
+                  pickup_time: pickupTime,
+                  order_notes: orderNotes,
+                  fulfillment,
                 }),
               });
 

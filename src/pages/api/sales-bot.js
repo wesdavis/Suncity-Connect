@@ -147,7 +147,7 @@ module.exports = async (req, res) => {
       if (isRetailClient) {
         functionDeclarations.push({
           name: "generate_checkout_link",
-          description: "Generates a secure payment link. ONLY call this when the customer specifies exact items from the menu and is ready to buy.",
+          description: "Generates a secure payment link. ONLY call this when the customer specifies exact items from the menu and is ready to buy. Always include pickup_time and order_notes from the conversation so the business owner knows when to have the order ready.",
           parameters: {
             type: "OBJECT",
             properties: {
@@ -162,6 +162,18 @@ module.exports = async (req, res) => {
                   },
                   required: ["name", "quantity"]
                 }
+              },
+              pickup_time: {
+                type: "STRING",
+                description: "When the customer will pick up or wants the order ready (e.g. Wednesday 10 AM, ASAP). Use conversation context."
+              },
+              order_notes: {
+                type: "STRING",
+                description: "Extra context for the owner: ordered while closed, special requests, etc. Keep under 200 characters."
+              },
+              fulfillment: {
+                type: "STRING",
+                description: "pickup, to-go, delivery, or dine-in. Default pickup."
               }
             },
             required: ["items"]
@@ -169,7 +181,7 @@ module.exports = async (req, res) => {
         });
 
         dynamicMenuSection = `\n--- VERIFIED MENU & PRICING ---\n${menuString}\n`;
-        dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.\n7. SCARCITY TRIGGER: When listing items or answering questions about the menu, if an item's Stock count is 3 or less, you must organically append a sense of urgency to close the sale (e.g., "These are going quick, it would be wise to purchase now!").`;
+        dynamicCashierRule = `\n6. THE CASHIER RULE: Only sell items from the VERIFIED MENU above. Do not invent items or prices. If the customer asks for a generic item and there are multiple options, you MUST ask them to clarify which one they want before generating a checkout link. When the customer confirms their exact order, use the generate_checkout_link tool to get their payment URL.\n7. ORDER NOTES: When calling generate_checkout_link, ALWAYS pass pickup_time and order_notes from the chat (pickup window, ordered after hours, special requests). The owner only sees the payment email, not this DM.\n8. SCARCITY TRIGGER: When listing items or answering questions about the menu, if an item's Stock count is 3 or less, you must organically append a sense of urgency to close the sale (e.g., "These are going quick, it would be wise to purchase now!").`;
       }
 
       const salesTools = [{ functionDeclarations }];
@@ -281,7 +293,10 @@ module.exports = async (req, res) => {
         }
 
         else if (call.name === "generate_checkout_link") {
-          const items = Array.isArray(call.args?.items) ? call.args.items : []; 
+          const items = Array.isArray(call.args?.items) ? call.args.items : [];
+          const pickupTime = call.args?.pickup_time || null;
+          const orderNotes = call.args?.order_notes || null;
+          const fulfillment = call.args?.fulfillment || 'pickup';
           
           if (items.length === 0) {
             console.error("AI triggered checkout but passed an empty or invalid items array.");
@@ -296,7 +311,10 @@ module.exports = async (req, res) => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   clientId: client.id, 
-                  items: items
+                  items: items,
+                  pickup_time: pickupTime,
+                  order_notes: orderNotes,
+                  fulfillment,
                 })
               });
               

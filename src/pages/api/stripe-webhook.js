@@ -143,7 +143,9 @@ export default async function handler(req, res) {
       const clientId = session.metadata.client_id;
       const rawItems = session.metadata.items;
       const rawItemsJson = session.metadata.items_json;
-      const fulfillmentType = session.metadata.fulfillment || 'Standard';
+      const fulfillmentType = session.metadata.fulfillment || 'pickup';
+      const pickupTime = session.metadata.pickup_time || null;
+      const orderNotes = session.metadata.order_notes || null;
       const orderTotal = session.metadata.order_total || (session.amount_total != null ? (session.amount_total / 100).toFixed(2) : null);
       const customerEmail = session.customer_details?.email || session.customer_email || null;
 
@@ -220,12 +222,14 @@ export default async function handler(req, res) {
               html: `
                 <div style="font-family: Arial, sans-serif; padding: 24px; border: 1px solid #e5e5e5; border-radius: 12px; max-width: 520px; margin: auto; background: #fff;">
                   <h2 style="margin: 0 0 8px; color: #111; text-align: center;">New Order Received</h2>
-                  <p style="text-align: center; color: #666; margin: 0 0 20px;"><strong>Fulfillment:</strong> ${fulfillmentType}</p>
+                  <p style="text-align: center; color: #666; margin: 0 0 12px;"><strong>Fulfillment:</strong> ${fulfillmentType}</p>
+                  ${pickupTime && pickupTime !== 'Not specified' ? `<p style="text-align: center; color: #111; font-size: 16px; font-weight: bold; margin: 0 0 12px;">🕐 Pickup / ready: ${pickupTime}</p>` : ''}
                   <hr style="border: none; border-top: 1px solid #eee; margin: 0 0 20px;" />
                   <p style="font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px;"><strong>Order details</strong></p>
                   <p style="font-size: 18px; font-weight: bold; line-height: 1.5; color: #000; margin: 0 0 12px;">${displayItems}</p>
                   ${orderTotal ? `<p style="font-size: 16px; color: #111; margin: 0 0 12px;"><strong>Total paid:</strong> $${orderTotal}</p>` : ''}
                   ${customerEmail ? `<p style="font-size: 14px; color: #444; margin: 0 0 12px;"><strong>Customer email:</strong> ${customerEmail}</p>` : ''}
+                  ${orderNotes ? `<p style="font-size: 14px; color: #444; margin: 0 0 12px; background: #f8f8f8; padding: 12px; border-radius: 8px;"><strong>Notes from chat:</strong><br/>${orderNotes}</p>` : ''}
                   <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
                   <p style="text-align: center; color: #16a34a; font-weight: bold; margin: 0;">✔ Paid via AI Cashier</p>
                   <p style="text-align: center; color: #999; font-size: 12px; margin: 12px 0 0;">Sun City Connect</p>

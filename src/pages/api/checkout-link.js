@@ -13,12 +13,16 @@ export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     try {
-        const { clientId, items } = req.body;
+        const { clientId, items, pickup_time, order_notes, fulfillment } = req.body;
         // Expected items array format: [{ name: "Midnight Stout", quantity: 2 }]
 
         if (!clientId || !items || items.length === 0) {
             return res.status(400).json({ error: 'Missing clientId or items' });
         }
+
+        const fulfillmentType = (fulfillment || 'pickup').toString().substring(0, 50);
+        const pickupTime = pickup_time ? String(pickup_time).substring(0, 200) : '';
+        const orderNotes = order_notes ? String(order_notes).substring(0, 400) : '';
 
         // 1. Fetch the Client's Payment Credentials
         const { data: client, error: clientError } = await supabase
@@ -98,14 +102,16 @@ export default async function handler(req, res) {
                 mode: 'payment',
                 success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}&total=${orderTotal.toFixed(2)}`,
                 cancel_url: `${baseUrl}/success?cancelled=1`,
-                // 🚨 OMNI-CHANNEL METADATA (webhook needs JSON to decrement stock)
+                // 🚨 OMNI-CHANNEL METADATA (webhook needs JSON to decrement stock + order context for owner email)
                 metadata: {
                     order_type: 'product_order',
                     client_id: String(clientId),
                     items: orderSummary.substring(0, 500),
                     items_json: itemsJson,
-                    fulfillment: 'Standard',
+                    fulfillment: fulfillmentType,
                     order_total: String(orderTotal.toFixed(2)),
+                    pickup_time: pickupTime || 'Not specified',
+                    order_notes: orderNotes || '',
                 }
             }, {
                 // Routes payment to the client's connected Stripe account
