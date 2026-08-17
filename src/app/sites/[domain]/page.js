@@ -254,10 +254,35 @@ export default function MasterTemplate() {
       });
 
       const data = await response.json();
+      const rawText = data.reply || data.error || "I hit a glitch. Please try again.";
+
+      // Prefer structured fields; fall back to extracting a Stripe/checkout URL from the reply text
+      const urlFromText = (rawText.match(/https?:\/\/[^\s]+/g) || []).find((u) =>
+        /checkout\.stripe\.com|buy\.stripe\.com|squareup\.com|square\.link/i.test(u)
+      ) || null;
+      const checkoutUrl = data.checkoutUrl || urlFromText || null;
+
+      // Pull total from structured field or from "comes to $X.XX" in the reply
+      let checkoutTotal = data.checkoutTotal ?? null;
+      if (checkoutTotal == null) {
+        const totalMatch = rawText.match(/\$\s?(\d+(?:\.\d{1,2})?)/);
+        if (totalMatch) checkoutTotal = parseFloat(totalMatch[1]);
+      }
+
+      // Strip raw URLs from the bubble text so the button is the only CTA
+      const cleanText = rawText
+        .replace(/https?:\/\/[^\s]+/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
 
       setMessages(prev => [
         ...prev,
-        { role: 'ai', text: data.reply || data.error || "I hit a glitch. Please try again." }
+        {
+          role: 'ai',
+          text: cleanText,
+          checkoutUrl,
+          checkoutTotal,
+        }
       ]);
     } catch (error) {
       console.error("AI Chat Error:", error);
@@ -484,6 +509,17 @@ export default function MasterTemplate() {
                 style={msg.role === 'user' ? { backgroundColor: client.primary_color || '#ea580c' } : {}}
               >
                 {msg.text}
+                {msg.checkoutUrl && (
+                  <a
+                    href={msg.checkoutUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-2 w-full rounded-xl px-4 py-3 text-sm font-bold text-white shadow-lg transition-transform active:scale-[0.98] hover:brightness-110"
+                    style={{ backgroundColor: client.primary_color || '#ea580c' }}
+                  >
+                    Pay{msg.checkoutTotal != null ? ` $${Number(msg.checkoutTotal).toFixed(2)}` : ''} Securely →
+                  </a>
+                )}
               </div>
             </div>
           ))}

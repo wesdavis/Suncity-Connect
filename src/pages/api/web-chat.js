@@ -376,7 +376,8 @@ Draft your immediate reply response text or execute a tool below:`;
               if (checkoutData.success) {
                 checkoutUrl = checkoutData.url;
                 checkoutTotal = Number(checkoutData.total);
-                aiReply = `Awesome! Your total comes to $${checkoutTotal.toFixed(2)}. Tap the button below to pay securely and we'll get your order started. 🚀`;
+                // URL kept in reply as a fallback; storefront UI strips it and shows a Pay button
+                aiReply = `Awesome! Your total comes to $${checkoutTotal.toFixed(2)}. Tap the button below to pay securely and we'll get your order started. 🚀\n\n${checkoutData.url}`;
                 extractedData.status = 'Hot';
                 extractedData.intent = 'Ready to Purchase';
               } else {
@@ -429,8 +430,8 @@ Extract parameters and return a valid JSON object with exact keys: {"intent": "2
     return res.status(200).json({
       success: true,
       reply: aiReply,
-      checkoutUrl: checkoutUrl || undefined,
-      checkoutTotal: checkoutTotal != null ? checkoutTotal : undefined,
+      checkoutUrl: checkoutUrl || null,
+      checkoutTotal: checkoutTotal != null ? checkoutTotal : null,
     });
   } catch (error) {
     console.error('Critical server error inside web-chat engine:', error);
