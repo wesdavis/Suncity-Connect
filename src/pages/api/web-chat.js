@@ -53,6 +53,8 @@ module.exports = async (req, res) => {
     const needsHandoff = escalationTriggers.some((k) => message.toLowerCase().includes(k));
 
     let aiReply = '';
+    let checkoutUrl = null;
+    let checkoutTotal = null;
     let extractedData = {
       intent: 'Website Visitor',
       phone: 'Pending',
@@ -372,7 +374,9 @@ Draft your immediate reply response text or execute a tool below:`;
               }
 
               if (checkoutData.success) {
-                aiReply = `Awesome! Your total comes to $${Number(checkoutData.total).toFixed(2)}. You can securely pay right here and we'll get your order started: ${checkoutData.url} 🚀`;
+                checkoutUrl = checkoutData.url;
+                checkoutTotal = Number(checkoutData.total);
+                aiReply = `Awesome! Your total comes to $${checkoutTotal.toFixed(2)}. Tap the button below to pay securely and we'll get your order started. 🚀`;
                 extractedData.status = 'Hot';
                 extractedData.intent = 'Ready to Purchase';
               } else {
@@ -422,7 +426,12 @@ Extract parameters and return a valid JSON object with exact keys: {"intent": "2
       },
     ]);
 
-    return res.status(200).json({ success: true, reply: aiReply });
+    return res.status(200).json({
+      success: true,
+      reply: aiReply,
+      checkoutUrl: checkoutUrl || undefined,
+      checkoutTotal: checkoutTotal != null ? checkoutTotal : undefined,
+    });
   } catch (error) {
     console.error('Critical server error inside web-chat engine:', error);
     return res.status(500).json({ error: error.message });

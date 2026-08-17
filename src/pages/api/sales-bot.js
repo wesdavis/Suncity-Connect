@@ -311,7 +311,8 @@ module.exports = async (req, res) => {
               }
               
               if (checkoutData.success) {
-                aiReply = `Awesome! Your total comes to $${(checkoutData.total).toFixed(2)}. You can securely pay and send your order straight to the kitchen right here: ${checkoutData.url} 🚀`;
+                // URL on its own line so Instagram/Facebook renders a clean tappable link
+                aiReply = `Awesome! Your total comes to $${Number(checkoutData.total).toFixed(2)}. Tap below to pay securely and we'll get your order started 🚀\n\n${checkoutData.url}`;
                 extractedData.status = "Hot";
                 extractedData.intent = "Ready to Purchase";
               } else {
