@@ -68,25 +68,30 @@ function parseOrderItems(rawItems, rawItemsJson) {
 }
 
 async function resolveOwnerEmail(clientRow) {
-  // 1. Direct email column on clients (if populated)
-  if (clientRow?.email && clientRow.email.includes('@')) {
-    return clientRow.email;
-  }
-
-  // 2. Auth user email via service role
+  // clients table has no email column — resolve from auth.users via user_id
   if (clientRow?.user_id) {
     try {
       const { data, error } = await supabase.auth.admin.getUserById(clientRow.user_id);
-      if (!error && data?.user?.email) {
+      if (error) {
+        console.warn('⚠️ auth.admin.getUserById error:', error.message);
+      } else if (data?.user?.email) {
+        console.log(`📧 Resolved owner email via auth for user ${clientRow.user_id}`);
         return data.user.email;
       }
     } catch (e) {
       console.warn('⚠️ auth.admin.getUserById failed:', e.message);
     }
+  } else {
+    console.warn('⚠️ Client has no user_id — cannot resolve owner email from auth');
   }
 
-  // 3. Hard fallback so we still know something failed
-  return process.env.ORDERS_FALLBACK_EMAIL || null;
+  // Optional platform fallback (set ORDERS_FALLBACK_EMAIL in Vercel for testing)
+  if (process.env.ORDERS_FALLBACK_EMAIL) {
+    console.log('📧 Using ORDERS_FALLBACK_EMAIL');
+    return process.env.ORDERS_FALLBACK_EMAIL;
+  }
+
+  return null;
 }
 
 export default async function handler(req, res) {
@@ -177,15 +182,17 @@ export default async function handler(req, res) {
       }
 
       // 1B. NOTIFY BUSINESS OWNER
+      // Note: clients has no email column — we resolve from auth.users via user_id
       const { data: clientData, error: dbError } = await supabase
         .from('clients')
-        .select('id, email, business_name, user_id')
+        .select('id, business_name, user_id')
         .eq('id', clientId)
         .single();
 
       if (dbError) {
         console.error('❌ Error fetching client for order notification:', dbError);
       } else {
+        console.log(`📬 Notifying owner for ${clientData.business_name} (user_id=${clientData.user_id || 'NONE'})`);
         const targetEmail = await resolveOwnerEmail(clientData);
         const displayItems =
           parsedItems.length > 0
@@ -193,11 +200,16 @@ export default async function handler(req, res) {
             : rawItems || 'See Stripe dashboard';
 
         if (!targetEmail) {
-          console.error('❌ No owner email found for client', clientId, '- order notification skipped');
+          console.error(
+            '❌ No owner email found for client',
+            clientId,
+            '- set ORDERS_FALLBACK_EMAIL in Vercel or ensure clients.user_id is linked to auth.users'
+          );
         } else {
           try {
-            await resend.emails.send({
-              from: 'Sun City Connect Orders <orders@suncityconnect.com>',
+            // Use assistant@ — same verified domain sender pattern as web-chat / bookings
+            const { data: sendData, error: sendError } = await resend.emails.send({
+              from: 'Sun City Connect Orders <assistant@suncityconnect.com>',
               to: targetEmail,
               subject: `🚨 NEW ORDER: ${clientData.business_name || 'Your storefront'}`,
               html: `
@@ -215,9 +227,14 @@ export default async function handler(req, res) {
                 </div>
               `,
             });
-            console.log(`✅ Merchant order notification sent to ${targetEmail}`);
+
+            if (sendError) {
+              console.error('❌ Resend API error:', JSON.stringify(sendError));
+            } else {
+              console.log(`✅ Merchant order notification sent to ${targetEmail}`, sendData?.id || '');
+            }
           } catch (resendError) {
-            console.error('❌ Resend failed to send order notification:', resendError);
+            console.error('❌ Resend failed to send order notification:', resendError?.message || resendError);
           }
         }
       }
