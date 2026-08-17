@@ -40,6 +40,12 @@ export default function SettingsPage() {
     const [squareAccessToken, setSquareAccessToken] = useState('');
     const [squareLocationId, setSquareLocationId] = useState('');
     const [notificationEmail, setNotificationEmail] = useState('');
+    const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false);
+    const [stripePayoutsEnabled, setStripePayoutsEnabled] = useState(false);
+    const [stripeDetailsSubmitted, setStripeDetailsSubmitted] = useState(false);
+    const [stripeRequirementsDue, setStripeRequirementsDue] = useState([]);
+    const [stripeConnecting, setStripeConnecting] = useState(false);
+    const [stripeStatusLoading, setStripeStatusLoading] = useState(false);
 
     // Meta Integration State
     const [fbPageId, setFbPageId] = useState(null);
@@ -54,7 +60,7 @@ export default function SettingsPage() {
             
             const { data, error } = await supabase
                 .from('clients')
-                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id, payment_processor, stripe_account_id, square_access_token, square_location_id, notification_email')
+                .select('id, primary_color, secondary_color, logo_url, instagram_link, facebook_link, website_link, yelp_link, appointment_duration, fb_page_id, payment_processor, stripe_account_id, square_access_token, square_location_id, notification_email, charges_enabled, payouts_enabled, details_submitted, stripe_requirements_due')
                 .eq('user_id', session.user.id)
                 .single();
                 
@@ -75,17 +81,142 @@ export default function SettingsPage() {
                 if (data.stripe_account_id) setStripeAccountId(data.stripe_account_id);
                 if (data.square_access_token) setSquareAccessToken(data.square_access_token);
                 if (data.square_location_id) setSquareLocationId(data.square_location_id);
+                setStripeChargesEnabled(!!data.charges_enabled);
+                setStripePayoutsEnabled(!!data.payouts_enabled);
+                setStripeDetailsSubmitted(!!data.details_submitted);
+                setStripeRequirementsDue(Array.isArray(data.stripe_requirements_due) ? data.stripe_requirements_due : []);
                 // Prefer saved notification email; fall back to auth email when present
                 if (data.notification_email) {
                   setNotificationEmail(data.notification_email);
                 } else if (session.user?.email) {
                   setNotificationEmail(session.user.email);
                 }
+
+                // Returning from Stripe onboarding — refresh live status
+                if (typeof window !== 'undefined') {
+                  const params = new URLSearchParams(window.location.search);
+                  if (params.get('stripe') === 'return' || params.get('stripe') === 'refresh') {
+                    // cleaned after refreshStripeStatus runs
+                  }
+                }
             }
             setLoading(false);
         }
         fetchSettings();
     }, []);
+
+    const getAccessToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        return session?.access_token || null;
+    };
+
+    const refreshStripeStatus = async () => {
+        const token = await getAccessToken();
+        if (!token) return;
+        setStripeStatusLoading(true);
+        try {
+            const res = await fetch('/api/stripe-connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ action: 'status' }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Status check failed');
+
+            if (data.stripe_account_id) setStripeAccountId(data.stripe_account_id);
+            setStripeChargesEnabled(!!data.charges_enabled);
+            setStripePayoutsEnabled(!!data.payouts_enabled);
+            setStripeDetailsSubmitted(!!data.details_submitted);
+            setStripeRequirementsDue(Array.isArray(data.requirements_due) ? data.requirements_due : []);
+            setPaymentProcessor('stripe');
+        } catch (err) {
+            console.error('Stripe status refresh failed:', err);
+        } finally {
+            setStripeStatusLoading(false);
+            if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                if (url.searchParams.has('stripe')) {
+                    url.searchParams.delete('stripe');
+                    window.history.replaceState({}, '', url.pathname);
+                }
+            }
+        }
+    };
+
+    // After return from Stripe hosted onboarding
+    useEffect(() => {
+        if (loading) return;
+        if (typeof window === 'undefined') return;
+        const params = new URLSearchParams(window.location.search);
+        const stripeParam = params.get('stripe');
+        if (stripeParam === 'return' || stripeParam === 'refresh') {
+            refreshStripeStatus();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading]);
+
+    const startStripeConnect = async () => {
+        if (!notificationEmail?.trim() || !notificationEmail.includes('@')) {
+            alert('Add an order notification email above first, then connect Stripe.');
+            return;
+        }
+        const token = await getAccessToken();
+        if (!token) {
+            alert('Please sign in again.');
+            return;
+        }
+        setStripeConnecting(true);
+        try {
+            // Persist notification email before creating the Stripe account
+            if (clientId) {
+                await supabase
+                    .from('clients')
+                    .update({ notification_email: notificationEmail.trim().toLowerCase() })
+                    .eq('id', clientId);
+            }
+
+            const res = await fetch('/api/stripe-connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ action: 'onboard' }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.url) {
+                throw new Error(data.error || 'Could not start Stripe onboarding');
+            }
+            window.location.href = data.url;
+        } catch (err) {
+            console.error(err);
+            alert(err.message || 'Stripe connect failed');
+            setStripeConnecting(false);
+        }
+    };
+
+    const openStripeDashboard = async () => {
+        const token = await getAccessToken();
+        if (!token) return;
+        try {
+            const res = await fetch('/api/stripe-connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ action: 'dashboard' }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.url) throw new Error(data.error || 'Could not open Stripe dashboard');
+            window.open(data.url, '_blank', 'noopener,noreferrer');
+        } catch (err) {
+            alert(err.message || 'Could not open Stripe dashboard');
+        }
+    };
 
     // Meta Graph API Fetcher with Permanent Token Exchange
     const fetchMetaPages = async () => {
@@ -407,15 +538,111 @@ export default function SettingsPage() {
 
                                 {paymentProcessor === 'stripe' && (
                                     <div className="space-y-4 animate-in fade-in duration-300">
+                                        {/* Connect status card */}
+                                        <div className={`rounded-xl border p-4 space-y-3 ${
+                                            stripeChargesEnabled
+                                                ? 'bg-emerald-500/10 border-emerald-500/30'
+                                                : stripeAccountId
+                                                    ? 'bg-amber-500/10 border-amber-500/30'
+                                                    : 'bg-zinc-900/50 border-white/10'
+                                        }`}>
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-bold text-white flex items-center gap-2">
+                                                        {stripeChargesEnabled ? (
+                                                            <><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Stripe connected</>
+                                                        ) : stripeAccountId ? (
+                                                            <>Setup incomplete</>
+                                                        ) : (
+                                                            <>Accept card payments</>
+                                                        )}
+                                                    </p>
+                                                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                                                        {stripeChargesEnabled
+                                                            ? 'Your AI cashier can take paid orders. Money goes to your Stripe account.'
+                                                            : stripeAccountId
+                                                                ? 'Finish verification on Stripe so charges can be enabled.'
+                                                                : 'Connect Stripe in about 2 minutes. No account ID to copy — Stripe handles it.'}
+                                                    </p>
+                                                    {stripeAccountId && (
+                                                        <p className="text-[11px] text-zinc-500 mt-2 font-mono">{stripeAccountId}</p>
+                                                    )}
+                                                </div>
+                                                {stripeStatusLoading && <Loader2 className="w-4 h-4 text-zinc-400 animate-spin shrink-0" />}
+                                            </div>
+
+                                            {(stripeChargesEnabled || stripePayoutsEnabled) && (
+                                                <div className="flex flex-wrap gap-2 text-[11px]">
+                                                    <span className={`px-2 py-1 rounded-full border ${stripeChargesEnabled ? 'border-emerald-500/40 text-emerald-300' : 'border-white/10 text-zinc-500'}`}>
+                                                        Charges {stripeChargesEnabled ? 'on' : 'off'}
+                                                    </span>
+                                                    <span className={`px-2 py-1 rounded-full border ${stripePayoutsEnabled ? 'border-emerald-500/40 text-emerald-300' : 'border-white/10 text-zinc-500'}`}>
+                                                        Payouts {stripePayoutsEnabled ? 'on' : 'off'}
+                                                    </span>
+                                                    {stripeDetailsSubmitted && (
+                                                        <span className="px-2 py-1 rounded-full border border-white/10 text-zinc-400">Details submitted</span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {stripeRequirementsDue?.length > 0 && (
+                                                <p className="text-xs text-amber-200/90">
+                                                    Stripe still needs: {stripeRequirementsDue.slice(0, 4).join(', ')}
+                                                    {stripeRequirementsDue.length > 4 ? '…' : ''}
+                                                </p>
+                                            )}
+
+                                            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                                                {!stripeChargesEnabled ? (
+                                                    <Button
+                                                        type="button"
+                                                        onClick={startStripeConnect}
+                                                        disabled={stripeConnecting}
+                                                        className="bg-[#635BFF] hover:bg-[#5851e6] text-white font-bold"
+                                                    >
+                                                        {stripeConnecting ? (
+                                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Redirecting…</>
+                                                        ) : stripeAccountId ? (
+                                                            'Continue Stripe setup'
+                                                        ) : (
+                                                            'Connect with Stripe'
+                                                        )}
+                                                    </Button>
+                                                ) : (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={openStripeDashboard}
+                                                        className="border-white/15 text-white hover:bg-white/5"
+                                                    >
+                                                        <ExternalLink className="w-4 h-4 mr-2" /> Manage payouts
+                                                    </Button>
+                                                )}
+                                                {stripeAccountId && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={refreshStripeStatus}
+                                                        disabled={stripeStatusLoading}
+                                                        className="border-white/15 text-zinc-300 hover:bg-white/5"
+                                                    >
+                                                        Refresh status
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <p className="text-xs text-zinc-500 leading-relaxed">
+                                            Advanced: you can still paste an existing Connect account ID if Sun City support set one up for you.
+                                        </p>
                                         <div className="space-y-2">
-                                            <Label className="text-zinc-300">Stripe Account ID (e.g. acct_1Hxyz...)</Label>
-                                            <Input 
-                                                placeholder="Enter your Stripe Account ID" 
-                                                className="bg-zinc-900/50 border-white/10 text-white" 
-                                                value={stripeAccountId} 
-                                                onChange={(e) => setStripeAccountId(e.target.value)} 
+                                            <Label className="text-zinc-400 text-xs">Stripe Account ID (optional override)</Label>
+                                            <Input
+                                                placeholder="acct_..."
+                                                className="bg-zinc-900/50 border-white/10 text-white text-sm"
+                                                value={stripeAccountId}
+                                                onChange={(e) => setStripeAccountId(e.target.value)}
                                             />
-                                            <p className="text-xs text-zinc-500">Found in your Stripe Dashboard under Settings &gt; Account Details.</p>
                                         </div>
                                     </div>
                                 )}
