@@ -84,24 +84,31 @@ export default async function handler(req, res) {
                 quantity: item.quantity,
             }));
 
-            // Create a readable string of the items for the webhook notification
+            // Human-readable summary + machine-readable JSON for inventory decrement
             const orderSummary = secureLineItems.map(item => `${item.quantity}x ${item.name}`).join(', ');
+            const itemsJson = JSON.stringify(
+              secureLineItems.map(({ name, quantity }) => ({ name, quantity }))
+            ).substring(0, 500);
+
+            const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://suncityconnect.com';
 
             const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card', 'cashapp'],
                 line_items: stripeLineItems,
                 mode: 'payment',
-                success_url: `https://suncityconnect.com/success`, 
-                // 🚨 INJECTING THE OMNI-CHANNEL METADATA 🚨
+                success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}&total=${orderTotal.toFixed(2)}`,
+                cancel_url: `${baseUrl}/success?cancelled=1`,
+                // 🚨 OMNI-CHANNEL METADATA (webhook needs JSON to decrement stock)
                 metadata: {
                     order_type: 'product_order',
-                    client_id: clientId,
-                    // Truncate to 500 characters to strictly respect Stripe's API limits
+                    client_id: String(clientId),
                     items: orderSummary.substring(0, 500),
-                    fulfillment: 'Standard'
+                    items_json: itemsJson,
+                    fulfillment: 'Standard',
+                    order_total: String(orderTotal.toFixed(2)),
                 }
             }, {
-                // This routes the payment directly to the client's connected Stripe account
+                // Routes payment to the client's connected Stripe account
                 stripeAccount: client.stripe_account_id 
             });
 
