@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { Resend } = require('resend');
+const { notifyOwner } = require('../lib/notify-owner');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -18,7 +19,7 @@ module.exports = async (req, res) => {
     // Include id so we can load inventory + generate checkout links
     const { data: client, error: clientError } = await supabase
       .from('clients')
-      .select('id, custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge, timezone, booking_link, appointment_duration, hours')
+      .select('id, custom_prompt, ig_account_id, business_name, is_bot_active, user_id, pdf_knowledge, timezone, booking_link, appointment_duration, hours, notification_email')
       .eq('custom_domain', domain)
       .single();
 
@@ -70,6 +71,14 @@ module.exports = async (req, res) => {
       dbStatus = 'escalated';
       extractedData.intent = 'Needs Human Assistance';
       extractedData.status = 'Hot';
+      // Fire-and-forget owner alert (don't block the chat reply)
+      notifyOwner({
+        client,
+        type: 'escalation',
+        title: 'Customer asked for a human',
+        body: `Someone on your storefront chat wants a real person.\n\nThey said: "${message}"`,
+        meta: { Channel: 'Storefront chat', Visitor: `Web_${String(visitorId).substring(0, 6)}` },
+      }).catch(() => {});
     } else {
       // --- LOAD VERIFIED INVENTORY ---
       const { data: inventory } = await supabase
@@ -342,6 +351,19 @@ Draft your immediate reply response text or execute a tool below:`;
                 intent: 'Appointment Confirmed',
                 timeline: `${successDate} at ${successTime}`,
               };
+              notifyOwner({
+                client,
+                type: 'booking',
+                title: `${customer_name} booked ${successDate} at ${successTime}`,
+                body: 'A new appointment was booked from your storefront chat.',
+                meta: {
+                  Customer: customer_name,
+                  Email: customer_email,
+                  Phone: customer_phone || '—',
+                  When: `${successDate} at ${successTime}`,
+                  Service: service_type || 'General Booking',
+                },
+              }).catch(() => {});
 
               if (customer_email && customer_email.includes('@')) {
                 try {

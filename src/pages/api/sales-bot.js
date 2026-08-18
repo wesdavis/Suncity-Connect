@@ -2,6 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { Resend } = require('resend');
+const { notifyOwner } = require('../lib/notify-owner');
 
 // Initialize our communication tools using your Vercel Environment Variables
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -93,6 +94,16 @@ module.exports = async (req, res) => {
       dbStatus = 'escalated';
       extractedData.intent = "Needs Human Assistance";
       extractedData.status = "Hot";
+      notifyOwner({
+        client,
+        type: 'escalation',
+        title: 'Customer asked for a human',
+        body: `Someone on ${msg.platform || 'Instagram/Facebook'} wants a real person.\n\nThey said: "${msg.incoming_message}"`,
+        meta: {
+          Channel: msg.platform || 'Social DM',
+          From: msg.ig_username || msg.meta_sender_id || 'Unknown',
+        },
+      }).catch(() => {});
     } else {
 
       // --- 1. DEFINE THE CORE TOOLS ---
@@ -380,6 +391,21 @@ module.exports = async (req, res) => {
               aiReply = `You're all set, ${customer_name}! I have you booked for ${formattedTime}. I'll make sure the team is ready for you. 🚀`;
               extractedData.status = "Hot";
               extractedData.intent = "Booked Appointment";
+
+              notifyOwner({
+                client,
+                type: 'booking',
+                title: `${customer_name} booked ${formattedTime}`,
+                body: 'A new appointment was booked from Instagram/Facebook chat.',
+                meta: {
+                  Customer: customer_name,
+                  Email: customer_email || '—',
+                  Phone: customer_phone || '—',
+                  When: formattedTime,
+                  Service: service_type || 'General Consultation',
+                  Channel: msg.platform || 'Social DM',
+                },
+              }).catch(() => {});
 
               if (customer_email) {
                 await resend.emails.send({
