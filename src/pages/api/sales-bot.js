@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { createClient } = require('@supabase/supabase-js');
 const twilio = require('twilio');
 const { Resend } = require('resend');
-const { notifyOwner } = require('../lib/notify-owner');
+const { notifyOwner } = require('./notify-owner');
 
 // Initialize our communication tools using your Vercel Environment Variables
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
@@ -229,6 +229,7 @@ module.exports = async (req, res) => {
       3. EMAIL ACTION: If the customer asks for an email or provides an email address, USE the send_email tool.
       4. APPOINTMENT ACTION: If the customer asks to book a consultation or appointment, USE the book_appointment tool. 
       5. MEMORY CHECK: Read the "Recent Conversation" below. If the customer already provided their phone number or email, DO NOT ask for it again. ${dynamicCashierRule}
+      6. ALWAYS reply in the same language the customer is using. Spanish in → Spanish out. English in → English out.
 
       --- RECENT CONVERSATION (Memory) ---
       ${historyString}

@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { Resend } = require('resend');
-const { notifyOwner } = require('../lib/notify-owner');
+const { notifyOwner } = require('./notify-owner');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -233,6 +233,7 @@ ${dynamicMenuSection}
 3. CALENDAR ACTION: If the customer wants to book a time/appointment and provides their name, email, and desired time, USE the check_and_book_appointment tool.
 4. MISSING BOOKING INFO: If they want to book, check the CONVERSATIONAL MEMORY first. If they already provided their name or email earlier, DO NOT ask for it again.
 5. THIRD PARTY CALENDAR: If this business has a custom booking link (${client.booking_link || 'None provided'}), provide them the link instead of using the native tool when appropriate.
+6. Always reply in the same language the customer is using. Spanish in → Spanish out. English in → English out.
 ${dynamicCashierRule}
 
 --- CONVERSATIONAL MEMORY ---
