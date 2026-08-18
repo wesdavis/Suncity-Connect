@@ -969,7 +969,7 @@ export default function PremiumLeadDashboard() {
           setIsManualBooking(false);
         }
       }}>         
-        <SheetContent className="w-full sm:max-w-md bg-zinc-950/90 backdrop-blur-3xl border-l border-white/10 p-0 flex flex-col shadow-2xl">           
+        <SheetContent className="w-full sm:max-w-md bg-zinc-950/90 backdrop-blur-3xl border-l border-white/10 p-0 flex flex-col shadow-2xl overflow-x-hidden">           
           <SheetHeader className="p-6 border-b border-white/5 bg-black/20">             
             <SheetTitle className="flex items-center justify-between text-xl text-white">               
               <div className="flex items-center gap-3">                 
@@ -1042,18 +1042,22 @@ export default function PremiumLeadDashboard() {
             </div>
           )}         
 
-          <ScrollArea className="flex-1 p-6">             
-            <div className="flex flex-col gap-6 pb-6">               
-              <div className="flex flex-col gap-1.5 items-start w-[85%]">                 
+          <ScrollArea className="flex-1 p-6 min-w-0">             
+            <div className="flex flex-col gap-6 pb-6 min-w-0 max-w-full">               
+              <div className="flex flex-col gap-1.5 items-start max-w-[85%] min-w-0">                 
                 <span className="text-xs font-bold text-zinc-500 ml-1 uppercase tracking-wider">Customer</span>                 
-                <div className="bg-white/10 border border-white/5 backdrop-blur-md text-zinc-100 p-4 rounded-2xl rounded-tl-sm shadow-sm">                   
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead?.incoming_message}</p>                 
+                <div className="bg-white/10 border border-white/5 backdrop-blur-md text-zinc-100 p-4 rounded-2xl rounded-tl-sm shadow-sm min-w-0 max-w-full overflow-hidden">                   
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {selectedLead?.incoming_message}
+                  </p>                 
                 </div>               
               </div>               
-              <div className="flex flex-col gap-1.5 items-end w-[85%] self-end">                 
+              <div className="flex flex-col gap-1.5 items-end max-w-[85%] min-w-0 self-end">                 
                 <span className="text-xs font-bold text-orange-500 mr-1 uppercase tracking-wider">AI Assistant</span>                 
-                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-[0_4px_20px_rgba(249,115,22,0.3)]">                   
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{selectedLead?.ai_reply}</p>                 
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-[0_4px_20px_rgba(249,115,22,0.3)] min-w-0 max-w-full overflow-hidden">                   
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                    {selectedLead?.ai_reply}
+                  </p>                 
                 </div>               
               </div>             
             </div>           
