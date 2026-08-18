@@ -27,6 +27,18 @@ export default function SplashPage() {
     { href: '#pricing', label: 'Pricing' },
   ];
 
+  const scrollToSection = (href) => {
+    setMobileOpen(false);
+    // Small delay so the sheet closes before scrolling (avoids mobile focus/scroll glitches)
+    setTimeout(() => {
+      const id = href.replace('#', '');
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 150);
+  };
+
   return (
     <div 
       className="min-h-screen font-sans selection:bg-orange-500/30 bg-zinc-950 text-white flex flex-col relative"
@@ -59,9 +71,14 @@ export default function SplashPage() {
             </Link>
             <div className="hidden md:flex items-center gap-6 text-sm text-zinc-400 font-medium">
               {navLinks.map(link => (
-                <a key={link.href} href={link.href} className="hover:text-white transition">
+                <button
+                  key={link.href}
+                  type="button"
+                  onClick={() => scrollToSection(link.href)}
+                  className="hover:text-white transition"
+                >
                   {link.label}
-                </a>
+                </button>
               ))}
             </div>
           </div>
@@ -91,14 +108,14 @@ export default function SplashPage() {
                 </SheetHeader>
                 <div className="flex flex-col gap-1 mt-6">
                   {navLinks.map(link => (
-                    <a
+                    <button
                       key={link.href}
-                      href={link.href}
-                      onClick={() => setMobileOpen(false)}
-                      className="px-3 py-3 rounded-lg text-zinc-300 hover:text-white hover:bg-white/5 font-medium"
+                      type="button"
+                      onClick={() => scrollToSection(link.href)}
+                      className="px-3 py-3 rounded-lg text-left text-zinc-300 hover:text-white hover:bg-white/5 font-medium w-full"
                     >
                       {link.label}
-                    </a>
+                    </button>
                   ))}
                   <div className="h-px bg-white/10 my-3" />
                   <Link href="/login" onClick={() => setMobileOpen(false)}>
@@ -106,11 +123,13 @@ export default function SplashPage() {
                       Client Login
                     </Button>
                   </Link>
-                  <Link href="#pricing" onClick={() => setMobileOpen(false)}>
-                    <Button className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full">
-                      Get Started
-                    </Button>
-                  </Link>
+                  <Button
+                    type="button"
+                    onClick={() => scrollToSection('#pricing')}
+                    className="w-full mt-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-full"
+                  >
+                    Get Started
+                  </Button>
                 </div>
               </SheetContent>
             </Sheet>
@@ -286,7 +305,7 @@ export default function SplashPage() {
       </section>
 
       {/* --- FEATURES GRID --- */}
-      <section id="features" className="w-full py-20 px-6 relative">
+      <section id="features" className="w-full py-20 px-6 relative scroll-mt-24">
         <div className="max-w-7xl mx-auto">
           <div className="max-w-2xl mb-14">
             <div className="inline-flex items-center gap-2 text-orange-400 text-xs font-bold tracking-widest uppercase mb-4">
@@ -407,7 +426,7 @@ export default function SplashPage() {
       </section>
 
       {/* --- HOW IT WORKS --- */}
-      <section id="how-it-works" className="w-full bg-white/[0.02] border-y border-white/[0.06] py-24 px-6">
+      <section id="how-it-works" className="w-full bg-white/[0.02] border-y border-white/[0.06] py-24 px-6 scroll-mt-24">
         <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-start">
           <div>
             <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-6">
@@ -481,7 +500,7 @@ export default function SplashPage() {
       </section>
 
       {/* --- FAQ --- */}
-      <section id="faq" className="w-full py-24 px-6">
+      <section id="faq" className="w-full py-24 px-6 scroll-mt-24">
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 text-orange-400 text-xs font-bold tracking-widest uppercase mb-4">
@@ -523,7 +542,7 @@ export default function SplashPage() {
       </section>
 
       {/* --- PRICING --- */}
-      <section id="pricing" className="w-full py-24 px-6 relative">
+      <section id="pricing" className="w-full py-24 px-6 relative scroll-mt-24">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-orange-500/[0.07] blur-[100px] rounded-full" />
         </div>

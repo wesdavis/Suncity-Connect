@@ -351,22 +351,22 @@ export default function PremiumLeadDashboard() {
           </div>
       )}
 
-      <div className="dark min-h-screen p-4 md:p-8 pt-8 md:pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}>         
-        <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">                      
+      <div className="dark min-h-screen p-3 sm:p-4 md:p-8 pt-6 sm:pt-8 md:pt-12 font-sans selection:bg-orange-500/30 bg-zinc-950 bg-fixed bg-cover bg-center" style={{ backgroundImage: `linear-gradient(to bottom, rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95)), url('/assets/bg-dark.png')` }}>         
+        <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6 md:space-y-8">                      
           
           {/* Header Section */}           
-          <div className="flex items-center justify-between mb-6 md:mb-10">             
-            <div className="flex items-center gap-3 md:gap-6">               
-              <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-10 md:h-16 w-auto drop-shadow-lg" />               
-              <div>                 
-                <h1 className="text-2xl md:text-4xl font-extrabold tracking-tight text-white capitalize">                   
+          <div className="flex items-start sm:items-center justify-between gap-3 mb-5 md:mb-10">             
+            <div className="flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">               
+              <img src="/assets/SCC_logo.png" alt="Sun City Connect" className="h-9 sm:h-12 md:h-16 w-auto drop-shadow-lg shrink-0" />               
+              <div className="min-w-0">                 
+                <h1 className="text-lg sm:text-2xl md:text-4xl font-extrabold tracking-tight text-white capitalize truncate">                   
                   {clientData?.business_name ? `${clientData.business_name}` : "Dashboard"}                 
                 </h1>                 
-                <p className="text-zinc-400 mt-1 text-sm md:text-lg">Real-time pipeline intelligence and AI chat logs.</p>               
+                <p className="text-zinc-400 mt-0.5 text-xs sm:text-sm md:text-lg line-clamp-1">Real-time pipeline intelligence and AI chat logs.</p>               
               </div>             
             </div>             
             
-            <div className="flex items-center gap-4">                               
+            <div className="flex items-center gap-2 sm:gap-4 shrink-0">                               
               {userProfile && (                 
                 <div className="hidden sm:flex items-center gap-4">                   
                   <Avatar className="h-10 w-10 md:h-12 md:w-12 border-2 border-zinc-800 shadow-lg bg-zinc-900">                     
@@ -387,20 +387,20 @@ export default function PremiumLeadDashboard() {
               
               <Sheet>                 
                 <SheetTrigger asChild>                   
-                  <Button variant="outline" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all px-3 md:px-4">                     
-                    <Menu className="h-5 w-5 md:mr-2" /> <span className="hidden md:inline">Menu</span>                   
+                  <Button variant="outline" size="icon" className="bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all h-10 w-10 sm:h-11 sm:w-auto sm:px-4">                     
+                    <Menu className="h-5 w-5" /> <span className="hidden sm:inline ml-2">Menu</span>                   
                   </Button>                 
                 </SheetTrigger>                 
-                <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl">                   
-                  <SheetHeader className="text-left mt-6 mb-8">                     
-                    <SheetTitle className="text-2xl font-black text-white">Account Menu</SheetTitle>                     
-                    <SheetDescription className="text-zinc-400">Manage your agency settings and membership.</SheetDescription>                   
+                <SheetContent side="right" className="bg-zinc-950/95 backdrop-blur-3xl border-l border-white/10 flex flex-col shadow-2xl w-[min(100vw-2rem,320px)]">                   
+                  <SheetHeader className="text-left mt-6 mb-6">                     
+                    <SheetTitle className="text-xl sm:text-2xl font-black text-white">Account Menu</SheetTitle>                     
+                    <SheetDescription className="text-zinc-400 text-sm">Manage your agency settings and membership.</SheetDescription>                   
                   </SheetHeader>                   
-                  <div className="flex flex-col gap-4 flex-1">                                          
-                    <div className="flex items-center justify-between p-4 rounded-xl bg-zinc-900/50 border border-white/10">                       
-                      <div className="flex flex-col">                         
-                        <span className="text-white font-bold flex items-center gap-2">                           
-                          <Flame className={`w-4 h-4 ${isBotActive && isSubscribed ? 'text-orange-500' : 'text-zinc-500'}`} />                           
+                  <div className="flex flex-col gap-3 flex-1 overflow-y-auto pb-6">                                          
+                    <div className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-900/50 border border-white/10">                       
+                      <div className="flex flex-col min-w-0 pr-2">                         
+                        <span className="text-white font-bold flex items-center gap-2 text-sm">                           
+                          <Flame className={`w-4 h-4 shrink-0 ${isBotActive && isSubscribed ? 'text-orange-500' : 'text-zinc-500'}`} />                           
                           AI Sales Bot                         
                         </span>                         
                         <span className="text-zinc-400 text-xs mt-1">
@@ -409,47 +409,66 @@ export default function PremiumLeadDashboard() {
                       </div>                       
                       <button 
                         onClick={toggleBot} 
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive && isSubscribed ? 'bg-orange-500' : 'bg-zinc-700 cursor-not-allowed'}`}
+                        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-zinc-950 ${isBotActive && isSubscribed ? 'bg-orange-500' : 'bg-zinc-700 cursor-not-allowed'}`}
                       >                         
                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isBotActive && isSubscribed ? 'translate-x-6' : 'translate-x-1'}`} />                       
                       </button>                     
-                    </div>                     
-                    <a href="/dashboard/brain">                       
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
-                        <BrainCircuit className="w-5 h-5 mr-3 text-purple-400" /> Configure AI Brain                       
-                      </Button>                     
-                    </a>
+                    </div>
 
-                    <a href="/dashboard/inventory">                       
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
-                        <Database className="w-5 h-5 mr-3 text-emerald-400" /> Digital Inventory & Menu                      
-                      </Button>                     
-                    </a>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/dashboard/settings')}
+                      className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm"
+                    >                         
+                      <Settings className="w-5 h-5 mr-3 text-zinc-300 shrink-0" /> Settings                       
+                    </Button>
 
-                    <a href="/dashboard/marketing">                       
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
-                        <Sparkles className="w-5 h-5 mr-3 text-orange-500" /> AI Social Manager                       
-                      </Button>                     
-                    </a>                     
-                    <a href="/dashboard/library">                       
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">                         
-                        <Library className="w-5 h-5 mr-3 text-blue-400" /> Campaign Vault                       
-                      </Button>                     
-                    </a>                     
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/dashboard/brain')}
+                      className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm"
+                    >                         
+                      <BrainCircuit className="w-5 h-5 mr-3 text-purple-400 shrink-0" /> Configure AI Brain                       
+                    </Button>
+
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/dashboard/inventory')}
+                      className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm"
+                    >                         
+                      <Database className="w-5 h-5 mr-3 text-emerald-400 shrink-0" /> Digital Inventory & Menu                      
+                    </Button>
+
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/dashboard/marketing')}
+                      className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm"
+                    >                         
+                      <Sparkles className="w-5 h-5 mr-3 text-orange-500 shrink-0" /> AI Social Manager                       
+                    </Button>                     
+
+                    <Button 
+                      variant="outline" 
+                      onClick={() => router.push('/dashboard/library')}
+                      className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm"
+                    >                         
+                      <Library className="w-5 h-5 mr-3 text-blue-400 shrink-0" /> Campaign Vault                       
+                    </Button>                     
+
                     <a 
                       href={isSubscribed ? "https://billing.stripe.com/p/login/5kQ00c5vC1AkfTc3sw7Vm01" : `https://buy.stripe.com/4gM8wI6zGbaU8qKaUY7Vm03?client_reference_id=${userId}`} 
                       target="_blank" 
                       rel="noopener noreferrer"
+                      className="block"
                     >
-                      <Button variant="outline" className="w-full justify-start h-14 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-base">
-                        <CreditCard className="w-5 h-5 mr-3 text-green-400" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"} 
+                      <Button variant="outline" className="w-full justify-start h-12 bg-zinc-900/50 border-white/10 text-white hover:bg-zinc-800 hover:text-white transition-all text-sm">
+                        <CreditCard className="w-5 h-5 mr-3 text-green-400 shrink-0" /> {isSubscribed ? "Manage Membership" : "Upgrade Membership"} 
                       </Button>
                     </a>                    
-                    <div className="pb-6">                       
-                      <Button onClick={handleLogout} variant="destructive" className="w-full justify-start h-14 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-base">                         
-                        <LogOut className="w-5 h-5 mr-3" /> Sign Out                       
-                      </Button>                     
-                    </div>                   
+
+                    <Button onClick={handleLogout} variant="destructive" className="w-full justify-start h-12 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-all text-sm mt-auto">                         
+                      <LogOut className="w-5 h-5 mr-3 shrink-0" /> Sign Out                       
+                    </Button>                   
                   </div>                 
                 </SheetContent>               
               </Sheet>             
@@ -457,14 +476,14 @@ export default function PremiumLeadDashboard() {
           </div>                      
           
           {/* Storefront Control Bar */}           
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-zinc-900/50 border border-white/10 rounded-2xl p-5 mb-6 shadow-lg">             
-            <div className="flex items-center gap-4 mb-4 sm:mb-0">               
-              <div className={`p-3 rounded-full border ${isSubscribed ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>                 
-                <Globe className={`w-6 h-6 ${isSubscribed ? 'text-green-400' : 'text-orange-400'}`} />               
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-zinc-900/50 border border-white/10 rounded-2xl p-4 sm:p-5 mb-5 sm:mb-6 shadow-lg">             
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">               
+              <div className={`p-2.5 sm:p-3 rounded-full border shrink-0 ${isSubscribed ? 'bg-green-500/10 border-green-500/20' : 'bg-orange-500/10 border-orange-500/20'}`}>                 
+                <Globe className={`w-5 h-5 sm:w-6 sm:h-6 ${isSubscribed ? 'text-green-400' : 'text-orange-400'}`} />               
               </div>               
-              <div>                 
-                <div className="flex items-center gap-2">
-                  <h3 className="text-white font-black text-lg">
+              <div className="min-w-0">                 
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-white font-black text-base sm:text-lg">
                     {isSubscribed ? "Your Website is Live" : "Storefront Preview Ready"}
                   </h3>
                   {!isSubscribed && (
@@ -473,10 +492,10 @@ export default function PremiumLeadDashboard() {
                     </Badge>
                   )}
                 </div>
-                <p className="text-zinc-400 text-sm">suncityconnect.com/sites/{clientDomain}</p>               
+                <p className="text-zinc-400 text-xs sm:text-sm truncate">suncityconnect.com/sites/{clientDomain}</p>               
               </div>             
             </div>                          
-            <div className="flex items-center gap-3 w-full sm:w-auto">               
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">               
               <Button 
                 onClick={() => {
                   if (!isSubscribed) {
@@ -485,44 +504,44 @@ export default function PremiumLeadDashboard() {
                   }
                   window.open(`/sites/${clientDomain}`, '_blank');
                 }}
-                className={`w-full sm:w-auto font-bold shadow-lg transition-all ${isSubscribed ? 'bg-white text-black hover:bg-zinc-200 shadow-white/10' : 'bg-zinc-800 text-zinc-400 border border-white/10'}`}
+                className={`flex-1 sm:flex-none font-bold shadow-lg transition-all text-sm sm:text-base h-10 sm:h-11 ${isSubscribed ? 'bg-white text-black hover:bg-zinc-200 shadow-white/10' : 'bg-zinc-800 text-zinc-400 border border-white/10'}`}
               >                   
-                View Storefront <ArrowRight className="w-4 h-4 ml-2" />                 
+                View Storefront <ArrowRight className="w-4 h-4 ml-1.5" />                 
               </Button>               
-              <Button variant="outline" onClick={() => router.push('/dashboard/settings')} className="flex-1 sm:flex-none border-white/10 text-white hover:bg-white/10">                 
-                <Pen className="w-4 h-4 mr-2" /> Settings               
+              <Button variant="outline" size="icon" onClick={() => router.push('/dashboard/settings')} className="shrink-0 h-10 w-10 sm:h-11 sm:w-11 border-white/10 text-white hover:bg-white/10">                 
+                <Pen className="w-4 h-4" />               
               </Button>           
             </div>           
           </div>                      
           
           {/* Top Metric Cards */}           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">             
-            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">               
-              <CardHeader className="flex flex-row items-center justify-between pb-2">                 
-                <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Hot Leads</CardTitle>                 
-                <Flame className="h-5 w-5 text-orange-500" />               
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 md:gap-6">             
+            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl col-span-1">               
+              <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 sm:px-6">                 
+                <CardTitle className="text-[11px] sm:text-sm font-medium text-zinc-400 uppercase tracking-wider">Hot Leads</CardTitle>                 
+                <Flame className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 shrink-0" />               
               </CardHeader>               
-              <CardContent>                 
-                <div className="text-4xl font-black text-white">{loading ? <Skeleton className="h-10 w-16 bg-white/10" /> : hotLeadsCount}</div>               
+              <CardContent className="px-4 sm:px-6 pb-4 pt-1">                 
+                <div className="text-3xl sm:text-4xl font-black text-white">{loading ? <Skeleton className="h-8 w-12 sm:h-10 sm:w-16 bg-white/10" /> : hotLeadsCount}</div>               
               </CardContent>             
             </Card>             
-            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">               
-              <CardHeader className="flex flex-row items-center justify-between pb-2">                 
-                <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Appointments Booked</CardTitle>                 
-                <CalendarIcon className="h-5 w-5 text-blue-400" />               
+            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl col-span-1">               
+              <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 sm:px-6">                 
+                <CardTitle className="text-[11px] sm:text-sm font-medium text-zinc-400 uppercase tracking-wider leading-tight">Appts Booked</CardTitle>                 
+                <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-400 shrink-0" />               
               </CardHeader>               
-              <CardContent>                 
-                <div className="text-4xl font-black text-white">{loading ? <Skeleton className="h-10 w-16 bg-white/10" /> : appointments.filter(a => a.status === 'confirmed').length}</div>               
+              <CardContent className="px-4 sm:px-6 pb-4 pt-1">                 
+                <div className="text-3xl sm:text-4xl font-black text-white">{loading ? <Skeleton className="h-8 w-12 sm:h-10 sm:w-16 bg-white/10" /> : appointments.filter(a => a.status === 'confirmed').length}</div>               
               </CardContent>             
             </Card>             
-            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl">               
-              <CardHeader className="flex flex-row items-center justify-between pb-2">                 
-                <CardTitle className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Emails Captured</CardTitle>                 
-                <Mail className="h-5 w-5 text-green-400" />               
+            <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl col-span-2 md:col-span-1">               
+              <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4 px-4 sm:px-6">                 
+                <CardTitle className="text-[11px] sm:text-sm font-medium text-zinc-400 uppercase tracking-wider">Emails Captured</CardTitle>                 
+                <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-green-400 shrink-0" />               
               </CardHeader>               
-              <CardContent>                 
-                <div className="text-4xl font-black text-white">                   
-                  {loading ? <Skeleton className="h-10 w-16 bg-white/10" /> : leads.filter(l => l.extracted_data?.email && l.extracted_data.email !== 'Pending').length}                 
+              <CardContent className="px-4 sm:px-6 pb-4 pt-1">                 
+                <div className="text-3xl sm:text-4xl font-black text-white">                   
+                  {loading ? <Skeleton className="h-8 w-12 sm:h-10 sm:w-16 bg-white/10" /> : leads.filter(l => l.extracted_data?.email && l.extracted_data.email !== 'Pending').length}                 
                 </div>               
               </CardContent>             
             </Card>           
@@ -578,21 +597,21 @@ export default function PremiumLeadDashboard() {
               <Card className="bg-zinc-950/40 backdrop-blur-2xl border-white/10 shadow-2xl overflow-hidden h-full flex flex-col">                 
                 
                 {/* Clean Tab Selector Bar */}
-                <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/5">                   
-                  <div className="flex items-center gap-2 bg-zinc-900/80 p-1 rounded-xl border border-white/10">
+                <div className="p-3 sm:p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white/5">                   
+                  <div className="flex items-center gap-1 sm:gap-2 bg-zinc-900/80 p-1 rounded-xl border border-white/10 w-full sm:w-auto">
                     <Button 
                       variant="ghost" 
                       onClick={() => setActiveTab('leads')}
-                      className={`h-9 px-4 rounded-lg text-sm font-bold transition-all ${activeTab === 'leads' ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-400 hover:text-white'}`}
+                      className={`flex-1 sm:flex-none h-9 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'leads' ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      <MessageSquare className="w-4 h-4 mr-2" /> Leads Pipeline
+                      <MessageSquare className="w-4 h-4 mr-1.5 sm:mr-2 shrink-0" /> Leads
                     </Button>
                     <Button 
                       variant="ghost" 
                       onClick={() => setActiveTab('calendar')}
-                      className={`h-9 px-4 rounded-lg text-sm font-bold transition-all ${activeTab === 'calendar' ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-400 hover:text-white'}`}
+                      className={`flex-1 sm:flex-none h-9 px-3 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all ${activeTab === 'calendar' ? 'bg-orange-500 text-white shadow-md' : 'text-zinc-400 hover:text-white'}`}
                     >
-                      <CalendarIcon className="w-4 h-4 mr-2" /> Booking Calendar
+                      <CalendarIcon className="w-4 h-4 mr-1.5 sm:mr-2 shrink-0" /> Calendar
                     </Button>
                   </div>
 
