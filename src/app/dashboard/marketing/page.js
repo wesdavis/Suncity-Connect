@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { Sparkles, Megaphone, Loader2, Copy, CheckCircle2, ArrowLeft, Image as ImageIcon, Download, Save } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import Link from 'next/link';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function MarketingEngine() {
   const [loading, setLoading] = useState(false);
@@ -14,27 +20,45 @@ export default function MarketingEngine() {
   const [campaign, setCampaign] = useState(null);
   const [imageStr, setImageStr] = useState(null);
   const [copied, setCopied] = useState(false);
-
-  // NEW: State for the Save to Library button
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState(null);
 
   const generateCampaign = async () => {
     setLoading(true);
     setHeadline(null);
     setCampaign(null);
     setImageStr(null);
-    setSaved(false); // Reset save state on new generation
+    setSaved(false);
+    setErrorMsg(null);
     try {
-      const response = await fetch('/api/marketing-engine', { method: 'POST' });
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setErrorMsg("Please log in again to generate posts.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/marketing-engine', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       const data = await response.json();
       if (data.success) {
-        setHeadline(data.headline); 
+        setHeadline(data.headline);
         setCampaign(data.campaign);
-        setImageStr(data.image);
+        setImageStr(data.image || null);
+        if (!data.image) {
+          setErrorMsg("Copy is ready, but the image didn't generate this time. Try again.");
+        }
+      } else {
+        setErrorMsg(data.error || "Generation failed. Please try again.");
       }
     } catch (error) {
       console.error("Failed to generate campaign", error);
+      setErrorMsg("Something went wrong generating the campaign. Please try again.");
     }
     setLoading(false);
   };
@@ -45,30 +69,22 @@ export default function MarketingEngine() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // NEW: The Save to Library Function
+  // Save generated campaign into the Campaign Vault
   const saveToLibrary = async () => {
     if (!headline || !campaign || !imageStr) return;
     setSaving(true);
-    
+
     try {
-      // Get the session
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  const response = await fetch('/api/marketing-engine', { 
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      // Send the secure token, NOT the user ID
-      'Authorization': `Bearer ${session?.access_token}` 
-    },
-    body: JSON.stringify({
-      // Send your other data here, but NO userId
-      headline: headline,
-      caption: campaign,
-      imageBase64: imageStr
-    })
-  });
-      
+      const response = await fetch('/api/save-campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          headline,
+          caption: campaign,
+          imageBase64: imageStr
+        })
+      });
+
       const data = await response.json();
       if (data.success) {
         setSaved(true);
@@ -215,6 +231,12 @@ export default function MarketingEngine() {
               {loading ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Megaphone className="w-5 h-5 mr-2" />}
               {loading ? "Designing Your Post..." : "Draft a New Post"}
             </Button>
+
+            {errorMsg && (
+              <p className="text-amber-400/90 text-sm mt-3 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-2">
+                {errorMsg}
+              </p>
+            )}
 
             {campaign && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">

@@ -1,23 +1,65 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const { GoogleAuth } = require('google-auth-library');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+async function getUserFromRequest(req) {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) return null;
+  return data.user;
+}
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    console.log("🚀 Starting the Enterprise Marketing Engine...");
+    console.log("🚀 Starting Marketing Engine...");
 
-    // 1. Pull recent customer DMs — this is the real signal
-    const { data: recentDMs, error: dbError } = await supabase
+    // ── 1. Identify the logged-in client and load their brain ──────────────
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized — please log in again' });
+    }
+
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .select('id, user_id, business_name, custom_prompt, pdf_knowledge, tone, pricing, hours, extra_rules, ig_account_id, fb_page_id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (clientError || !client) {
+      return res.status(404).json({ error: 'Client profile not found. Finish onboarding first.' });
+    }
+
+    const businessName = client.business_name || 'Your Business';
+    const brain = [
+      client.custom_prompt,
+      client.pdf_knowledge ? `\n\nKNOWLEDGE BASE / MENU / SERVICES:\n${client.pdf_knowledge}` : '',
+      client.pricing ? `\nPRICING NOTES:\n${client.pricing}` : '',
+      client.hours ? `\nHOURS:\n${client.hours}` : '',
+      client.tone ? `\nTONE:\n${client.tone}` : ''
+    ].filter(Boolean).join('\n').trim() || 'No custom brain set yet — use a friendly local small-business voice.';
+
+    console.log(`🧠 Loaded brain for: ${businessName}`);
+
+    // ── 2. Pull THIS client's recent customer messages ─────────────────────
+    let dmQuery = supabase
       .from('b2b_inbox')
       .select('incoming_message')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(40);
 
+    if (client.user_id) {
+      dmQuery = dmQuery.eq('user_id', client.user_id);
+    } else if (client.ig_account_id) {
+      dmQuery = dmQuery.eq('business_ig_id', client.ig_account_id);
+    }
+
+    const { data: recentDMs, error: dbError } = await dmQuery;
     if (dbError) throw dbError;
 
     const messages = (recentDMs || [])
@@ -26,38 +68,40 @@ module.exports = async (req, res) => {
 
     const messageHistory = messages.length
       ? messages.map(m => `- ${m}`).join('\n')
-      : '- (No recent customer messages available — lean on proven local business pain points: missed late-night DMs, repeating the same pricing answers, losing impatient leads, owners acting like 24/7 robots)';
+      : '- (No recent customer messages yet — lean on the business brain and common local customer questions)';
 
-    // 2. Scrub the messages → extract pain → write copy + design a matching visual
+    // ── 3. Scrub messages + brain → write copy AS THIS BUSINESS + design image
     const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
-    const prompt = `You are the lead growth marketer and creative director for Sun City Connect — an AI sales automation platform built for local El Paso businesses (restaurants, contractors, salons, realtors, clinics, home services, etc.).
+    const prompt = `You are the social media manager and creative director for "${businessName}" — a real local business.
 
-REAL CUSTOMER MESSAGES / QUESTIONS FROM THE INBOX:
+BUSINESS BRAIN (who they are, what they sell, tone, rules, knowledge):
+${brain}
+
+RECENT CUSTOMER MESSAGES / QUESTIONS FROM THEIR INBOX:
 ${messageHistory}
 
-YOUR JOB — do this in order:
-1. Scrub the messages above. Identify the single strongest recurring pain point, question, or frustration.
-2. Write a short, punchy Instagram/Meta CAPTION (under 45 words) that agitates that exact pain and positions the 24/7 AI assistant as the fix. Speak like a sharp local operator, not corporate AI.
-3. The Call-to-Action MUST tell them to comment the exact word "DEMO".
-4. Write a HEADLINE of 3–6 words max. This will be overlaid in large bold type on the image — make it scannable and urgent.
-5. Design a custom IMAGE CONCEPT that visually represents the pain point you found. Be specific about the scene, subject, lighting, and mood. The image must feel premium, cinematic, and modern B2B — never generic stock.
+YOUR JOB:
+1. Scrub the customer messages. Identify the strongest recurring question, request, or frustration.
+2. Write content FROM THE PERSPECTIVE OF "${businessName}" — never mention Sun City Connect, AI bots, automation platforms, or "DEMO". You are writing posts the business will publish on their own Instagram/Facebook.
+3. Write a short, punchy CAPTION under 45 words in the business's natural voice. Agitate a real customer pain or desire, then point to what this business offers. End with a clear call-to-action that fits the business (e.g. "DM us to order", "Book now", "Tap the link in bio", "Reply with your name to reserve", etc.).
+4. Write a HEADLINE of 3–6 words max. This text will be overlaid in large bold type on the image — make it scannable and on-brand.
+5. Design a custom IMAGE CONCEPT that visually represents the pain point or offer you found. Be specific about scene, subject, lighting, and mood. Premium, cinematic, modern commercial photography.
 
 STRICT RULES FOR THE IMAGE CONCEPT:
-- Describe a complete photographic scene (not abstract graphics).
-- Match the business context if the messages point to one (restaurant, contractor truck, salon, clinic desk, etc.). If unclear, default to a local small-business owner context.
-- Mood: urgent, late-night or high-pressure, premium, high-contrast.
-- Lighting: cinematic (neon accents, practical lights, dusk, night windows, phone glow, etc.).
+- Complete photographic scene (not abstract graphics or illustrations).
+- Match the actual business type if the brain or messages make it clear (restaurant food, contractor job site, salon chair, clinic, retail storefront, etc.).
+- Mood: inviting, premium, or urgent depending on the message — always high quality.
 - Absolutely NO text, letters, numbers, logos, watermarks, or readable UI in the image description.
-- Keep it 1–2 sentences, highly visual, ready to send to an image model.
+- 1–2 highly visual sentences, ready to send to an image model.
 
 OUTPUT ONLY valid raw JSON with exactly these keys (no markdown, no extra text):
 
 {
-  "pain_point": "one-sentence summary of the core frustration you found",
+  "pain_point": "one-sentence summary of the core customer need or frustration",
   "headline": "3 to 6 word headline",
-  "caption": "The full Instagram caption ending with the DEMO CTA",
-  "image_prompt": "A detailed cinematic photographic description of the scene that visualizes the pain point"
+  "caption": "The full Instagram caption with a natural CTA for this business",
+  "image_prompt": "A detailed cinematic photographic description of the scene"
 }`;
 
     const result = await model.generateContent(prompt);
@@ -66,7 +110,6 @@ OUTPUT ONLY valid raw JSON with exactly these keys (no markdown, no extra text):
       .replace(/```/g, '')
       .trim();
 
-    // Extract JSON object safely even if the model wraps it
     const firstBrace = jsonText.indexOf('{');
     const lastBrace = jsonText.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace !== -1) {
@@ -75,107 +118,111 @@ OUTPUT ONLY valid raw JSON with exactly these keys (no markdown, no extra text):
 
     const generatedData = JSON.parse(jsonText);
 
-    const generatedHeadline = (generatedData.headline || 'Stop Missing Leads').trim().replace(/^["']|["']$/g, '');
+    const generatedHeadline = (generatedData.headline || 'Order Today').trim().replace(/^["']|["']$/g, '');
     const generatedCaption = (generatedData.caption || '').trim();
     const painPoint = (generatedData.pain_point || '').trim();
     let imagePrompt = (generatedData.image_prompt || '').trim();
 
-    // Hard safety: never allow text in the final image
     if (!imagePrompt) {
-      imagePrompt = `Cinematic late-night scene of a local business owner looking at a glowing smartphone full of unread messages, high contrast purple and blue lighting, urgent and premium advertising photography style`;
+      imagePrompt = `Cinematic, high-end commercial photograph representing a thriving local ${businessName} business, warm inviting lighting, premium advertising style`;
     }
     imagePrompt += `. Absolutely NO text, letters, numbers, logos, or watermarks of any kind in the image. High-end commercial photography, cinematic color grade.`;
 
-    console.log("✅ Scrubbed pain point →", painPoint);
+    console.log("✅ Pain point →", painPoint);
     console.log("✅ Headline →", generatedHeadline);
-    console.log("✅ Image concept →", imagePrompt.slice(0, 120) + '...');
+    console.log("✅ Image concept →", imagePrompt.slice(0, 140) + '...');
 
-    // 3. Generate the image from the AI-designed concept
-    console.log("🎨 Generating image from customer feedback...");
+    // ── 4. Generate image via Gemini native image model (no Vertex required)
+    console.log("🎨 Generating image from client feedback...");
 
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-    const auth = new GoogleAuth({
-      credentials,
-      scopes: 'https://www.googleapis.com/auth/cloud-platform'
-    });
-
-    const client = await auth.getClient();
-    const accessToken = (await client.getAccessToken()).token;
-    const projectId = await auth.getProjectId();
-
-    const location = 'us-central1';
-    const vertexUrl = `https://${location}-aiplatform.googleapis.com/v1/projects/${projectId}/locations/${location}/publishers/google/models/imagen-3.0-generate-001:predict`;
-
-    const imageResponse = await fetch(vertexUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        instances: [{ prompt: imagePrompt }],
-        parameters: {
-          sampleCount: 1,
-          aspectRatio: "1:1"
-        }
-      })
-    });
-
-    const imageData = await imageResponse.json();
     let base64Image = null;
+    try {
+      const imageModelsToTry = [
+        'gemini-2.5-flash-image',
+        'gemini-3.1-flash-image',
+        'gemini-3-pro-image'
+      ];
 
-    if (imageData.predictions && imageData.predictions[0]?.bytesBase64Encoded) {
-      base64Image = imageData.predictions[0].bytesBase64Encoded;
-      console.log("✅ Image generated from real feedback");
-    } else {
-      console.error("❌ Vertex AI Error:", JSON.stringify(imageData, null, 2));
+      for (const imageModel of imageModelsToTry) {
+        try {
+          const imageUrl = `https://generativelanguage.googleapis.com/v1beta/models/${imageModel}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+          const imageResponse = await fetch(imageUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: imagePrompt }] }],
+              generationConfig: {
+                responseModalities: ['TEXT', 'IMAGE']
+              }
+            })
+          });
+
+          const imageData = await imageResponse.json();
+
+          if (!imageResponse.ok) {
+            console.warn(`⚠️ ${imageModel} failed:`, imageData?.error?.message || imageResponse.status);
+            continue;
+          }
+
+          const parts = imageData?.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData?.data) {
+              base64Image = part.inlineData.data;
+              console.log(`✅ Image generated with ${imageModel}`);
+              break;
+            }
+          }
+
+          if (base64Image) break;
+        } catch (modelErr) {
+          console.warn(`⚠️ ${imageModel} error:`, modelErr.message);
+        }
+      }
+
+      if (!base64Image) {
+        console.error("❌ All Gemini image models failed to return image data");
+      }
+    } catch (imgErr) {
+      console.error("❌ Image generation exception:", imgErr.message);
     }
 
-    // 4. Smart hashtags based on the actual content
-    const generateHashtags = (captionText = '', headlineText = '', pain = '') => {
-      const lower = `${captionText} ${headlineText} ${pain}`.toLowerCase();
-      const tags = new Set(['#ElPasoBusiness', '#SmallBusiness']);
+    // ── 5. Hashtags rooted in the business + content
+    const generateHashtags = (captionText = '', headlineText = '', pain = '', name = '') => {
+      const lower = `${captionText} ${headlineText} ${pain} ${name}`.toLowerCase();
+      const tags = new Set(['#ElPaso', '#ElPasoBusiness', '#SmallBusiness']);
 
-      if (lower.includes('el paso') || lower.includes('west texas') || lower.includes('915')) {
-        tags.add('#ElPaso');
-        tags.add('#915');
+      if (lower.includes('food') || lower.includes('order') || lower.includes('menu') || lower.includes('restaurant') || lower.includes('hungry') || lower.includes('taco') || lower.includes('pizza')) {
+        tags.add('#ElPasoEats');
+        tags.add('#Foodie');
       }
-      if (lower.includes('lead') || lower.includes('dm') || lower.includes('inbox') || lower.includes('message') || lower.includes('sales')) {
-        tags.add('#LeadGeneration');
-        tags.add('#NeverMissALead');
+      if (lower.includes('book') || lower.includes('appoint') || lower.includes('schedule') || lower.includes('salon') || lower.includes('hair') || lower.includes('barber')) {
+        tags.add('#BookNow');
       }
-      if (lower.includes('automat') || lower.includes('bot') || lower.includes('ai') || lower.includes('24/7') || lower.includes('sleep')) {
-        tags.add('#AIAutomation');
-        tags.add('#AIAssistant');
-      }
-      if (lower.includes('restaurant') || lower.includes('food') || lower.includes('dining') || lower.includes('kitchen')) {
-        tags.add('#RestaurantMarketing');
-      }
-      if (lower.includes('contractor') || lower.includes('truck') || lower.includes('service') || lower.includes('home') || lower.includes('roof') || lower.includes('plumb')) {
+      if (lower.includes('contractor') || lower.includes('repair') || lower.includes('roof') || lower.includes('plumb') || lower.includes('home service')) {
         tags.add('#HomeServices');
+        tags.add('#ElPasoHomes');
       }
-      if (lower.includes('salon') || lower.includes('hair') || lower.includes('beauty') || lower.includes('barber')) {
-        tags.add('#SalonMarketing');
+      if (lower.includes('realtor') || lower.includes('real estate') || lower.includes('listing') || lower.includes('home for sale')) {
+        tags.add('#ElPasoRealEstate');
       }
-      if (lower.includes('realtor') || lower.includes('real estate') || lower.includes('listing') || lower.includes('house')) {
-        tags.add('#RealEstateMarketing');
-      }
+      if (lower.includes('915')) tags.add('#915');
 
       return Array.from(tags).slice(0, 6).join(' ');
     };
 
-    const finalHashtags = generateHashtags(generatedCaption, generatedHeadline, painPoint);
+    const finalHashtags = generateHashtags(generatedCaption, generatedHeadline, painPoint, businessName);
     const captionWithHashtags = `${generatedCaption}\n\n${finalHashtags}`.trim();
 
-    console.log("✅ Campaign ready — driven by real inbox feedback");
+    console.log("✅ Campaign ready for", businessName);
 
     return res.status(200).json({
       success: true,
       headline: generatedHeadline,
       campaign: captionWithHashtags,
       image: base64Image,
-      // Optional debug so you can see what the AI actually extracted
-      pain_point: painPoint
+      pain_point: painPoint,
+      business_name: businessName
     });
 
   } catch (error) {
